@@ -1,8 +1,10 @@
 use clap::{App, Arg};
 use config::Config;
 use mqtt::{packet::*, Encodable};
+use rand::{self, Rng};
 use std::{
     io::{Error, ErrorKind, Result},
+    ops::Add,
     panic,
     sync::Arc,
     time::Duration,
@@ -57,14 +59,19 @@ async fn stressing(client: String, cfg: Arc<Config>) {
         return;
     }
     let (mut rx, mut tx) = stream.split();
-    let mut heartbeat =
-        time::interval_at(Instant::now(), Duration::from_millis(cfg.think_time as u64));
+
+    let num = rand::thread_rng().gen_range(1..30000);
+    let mut heartbeat = time::interval_at(
+        Instant::now().add(Duration::from_millis(num)),
+        Duration::from_millis(cfg.think_time as u64),
+    );
     let (tx_ch, _rx) = broadcast::channel(10);
     let mut rx_ch = tx_ch.subscribe();
+    let payload = get_payload(&cfg.payload);
     loop {
         select! {
             _ = heartbeat.tick() => {
-                if let Ok(packet) = new_publish_packet(&state, &cfg, &client){
+                if let Ok(packet) = new_publish_packet(&state, &cfg, &client, payload.clone()){
                     tx_ch.send(packet).unwrap();
                 }else {
                     println!("heartbeat arrive but puback not received");
@@ -114,7 +121,12 @@ async fn stressing(client: String, cfg: Arc<Config>) {
     }
 }
 
-fn new_publish_packet(state: &StressState, cfg: &Config, client: &str) -> Result<PublishPacket> {
+fn new_publish_packet(
+    state: &StressState,
+    cfg: &Config,
+    client: &str,
+    payload: Vec<u8>,
+) -> Result<PublishPacket> {
     if state != &StressState::Published {
         println!("Do nothing as connection not build");
         return Err(Error::new(ErrorKind::Other, "not ready"));
@@ -129,7 +141,7 @@ fn new_publish_packet(state: &StressState, cfg: &Config, client: &str) -> Result
     let packet = PublishPacket::new(
         mqtt::TopicName::new(topic).unwrap(),
         QoSWithPacketIdentifier::Level1(1),
-        cfg.payload.clone(),
+        payload,
     );
     return Ok(packet);
 }
@@ -155,4 +167,11 @@ async fn connect_broker(client: &str, cfg: &Config) -> Result<TcpStream> {
     stream.write_all(&buf[..]).await?;
 
     Ok(stream)
+}
+
+fn get_payload(origin: &str) -> Vec<u8> {
+    return match base64::decode(origin) {
+        Ok(payload) => payload,
+        Err(_) => Vec::from(origin.as_bytes()),
+    };
 }
