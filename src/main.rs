@@ -42,73 +42,76 @@ async fn main() {
     for i in (0..connection).rev() {
         let cfg = arc_cfg.clone();
         let client = cfg.client_id.clone() + &i.to_string();
-        let mut state = StressState::Connecting;
-        handles.push(tokio::spawn(async move {
-            let mut stream;
-            if let Ok(str) = connect_broker(&client, &cfg).await {
-                stream = str;
-            } else {
-                return;
-            }
-            let (mut rx, mut tx) = stream.split();
-            let mut heartbeat = time::interval_at(Instant::now(), Duration::from_millis(cfg.think_time as u64)); 
-            let (tx_ch, _rx) = broadcast::channel(10);
-            let mut rx_ch = tx_ch.subscribe();
-            loop {
-                select! {
-                    _ = heartbeat.tick() => {
-                        if let Ok(packet) = send_packet(&state, &cfg, &client){
-                            tx_ch.send(packet).unwrap();
-                        }else {
-                            println!("heartbeat arrive but puback not received");
-                        }
-                    },
-                    result = rx_ch.recv() => {
-                        let packet = result.unwrap();
-                        let mut buf = Vec::new();
-                        packet.encode(&mut buf).unwrap();
-                        tx.write_all(&buf[..]).await.unwrap();
-                        state = StressState::Publishing;
-                    },
-                    result = VariablePacket::parse(&mut rx) => {
-                        let packet = match result {
-                            Ok(packet) => packet,
-                            Err(e) => {
-                                println!("parse packet error:{}", e);
-                                return ;
-                            }
-                        };
-
-                        match packet {
-                            VariablePacket::PingrespPacket(..) => {
-                                println!("Receiving PINGRESP from broker ..");
-                            }
-                            VariablePacket::ConnackPacket(_ack) => {
-                                if state == StressState::Connecting && _ack.connect_return_code() == mqtt::control::ConnectReturnCode::ConnectionAccepted{
-                                    state = StressState::Published;
-                                    println!("connection was established")
-                                } else {
-                                    println!("recv invalid connack {:?} under the state {:?}, task ended!", _ack, state);
-                                    return ;
-                                }
-                            }
-                            VariablePacket::PubackPacket(_ack) => {
-                                if state == StressState::Publishing {
-                                    state = StressState::Published;
-                                } else {
-                                    println!("recv invalid Puback, puback should be return when state is publishing");
-                                }
-                            }
-                            _ => {
-                            }
-                        }
-                    },
-                }
-            }
-        }));
+        handles.push(tokio::spawn(stressing(client, cfg)))
     }
     futures::future::join_all(handles).await;
     println!("All tasks run finished");
+}
+
+async fn stressing(client: String, cfg: Arc<Config>) {
+    let mut state = StressState::Connecting;
+    let mut stream;
+    if let Ok(str) = connect_broker(&client, &cfg).await {
+        stream = str;
+    } else {
+        return;
+    }
+    let (mut rx, mut tx) = stream.split();
+    let mut heartbeat =
+        time::interval_at(Instant::now(), Duration::from_millis(cfg.think_time as u64));
+    let (tx_ch, _rx) = broadcast::channel(10);
+    let mut rx_ch = tx_ch.subscribe();
+    loop {
+        select! {
+            _ = heartbeat.tick() => {
+                if let Ok(packet) = send_packet(&state, &cfg, &client){
+                    tx_ch.send(packet).unwrap();
+                }else {
+                    println!("heartbeat arrive but puback not received");
+                }
+            },
+            result = rx_ch.recv() => {
+                let packet = result.unwrap();
+                let mut buf = Vec::new();
+                packet.encode(&mut buf).unwrap();
+                tx.write_all(&buf[..]).await.unwrap();
+                state = StressState::Publishing;
+            },
+            result = VariablePacket::parse(&mut rx) => {
+                let packet = match result {
+                    Ok(packet) => packet,
+                    Err(e) => {
+                        println!("parse packet error:{}", e);
+                        return ;
+                    }
+                };
+
+                match packet {
+                    VariablePacket::PingrespPacket(..) => {
+                        println!("Receiving PINGRESP from broker ..");
+                    }
+                    VariablePacket::ConnackPacket(_ack) => {
+                        if state == StressState::Connecting && _ack.connect_return_code() == mqtt::control::ConnectReturnCode::ConnectionAccepted{
+                            state = StressState::Published;
+                            println!("connection was established")
+                        } else {
+                            println!("recv invalid connack {:?} under the state {:?}, task ended!", _ack, state);
+                            return ;
+                        }
+                    }
+                    VariablePacket::PubackPacket(_ack) => {
+                        if state == StressState::Publishing {
+                            state = StressState::Published;
+                        } else {
+                            println!("recv invalid Puback, puback should be return when state is publishing");
+                        }
+                    }
+                    _ => {
+                    }
+                }
+            },
+        }
+    }
 }
 
 fn send_packet(state: &StressState, cfg: &Config, client: &str) -> Result<PublishPacket> {
@@ -116,8 +119,13 @@ fn send_packet(state: &StressState, cfg: &Config, client: &str) -> Result<Publis
         println!("Do nothing as connection not build");
         return Err(Error::new(ErrorKind::Other, "not ready"));
     }
-    let topic =
-        String::from("/d2s/") + &cfg.tenant_name + "/" + &cfg.info_model_id + "/" + client + "/event/eventName";
+    let topic = String::from("/d2s/")
+        + &cfg.tenant_name
+        + "/"
+        + &cfg.info_model_id
+        + "/"
+        + client
+        + "/event/eventName";
     let packet = PublishPacket::new(
         mqtt::TopicName::new(topic).unwrap(),
         QoSWithPacketIdentifier::Level1(1),
@@ -126,7 +134,7 @@ fn send_packet(state: &StressState, cfg: &Config, client: &str) -> Result<Publis
     return Ok(packet);
 }
 
-async fn connect_broker(client : &str, cfg: &Config) -> Result<TcpStream> {
+async fn connect_broker(client: &str, cfg: &Config) -> Result<TcpStream> {
     let mut stream = match TcpStream::connect(&cfg.broker_addr).await {
         Ok(stream) => stream,
         Err(e) => {
@@ -134,7 +142,10 @@ async fn connect_broker(client : &str, cfg: &Config) -> Result<TcpStream> {
             return Err(e);
         }
     };
-    println!("broker {} was connected send connpkt packet", cfg.broker_addr);
+    println!(
+        "broker {} was connected send connpkt packet",
+        cfg.broker_addr
+    );
     let mut conn = ConnectPacket::new(client);
     conn.set_clean_session(true);
     conn.set_user_name(Option::Some(cfg.user_name.clone()));
