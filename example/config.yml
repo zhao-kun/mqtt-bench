@@ -1,7 +1,9 @@
-broker_addr: 127.0.0.1:1818
+broker_addr: 127.0.0.1:1883
 client_id: test
-connection: 2
-user_name: user
-password: passwd,
-payload: base64str
-think_time: 120
+connection: 100
+user_name: admin
+password: admin
+payload: "hello world"
+tenant_name: "zlg"
+info_model_id: "google"
+think_time: 5000
