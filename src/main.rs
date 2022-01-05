@@ -64,7 +64,7 @@ async fn stressing(client: String, cfg: Arc<Config>) {
     loop {
         select! {
             _ = heartbeat.tick() => {
-                if let Ok(packet) = send_packet(&state, &cfg, &client){
+                if let Ok(packet) = new_publish_packet(&state, &cfg, &client){
                     tx_ch.send(packet).unwrap();
                 }else {
                     println!("heartbeat arrive but puback not received");
@@ -114,7 +114,7 @@ async fn stressing(client: String, cfg: Arc<Config>) {
     }
 }
 
-fn send_packet(state: &StressState, cfg: &Config, client: &str) -> Result<PublishPacket> {
+fn new_publish_packet(state: &StressState, cfg: &Config, client: &str) -> Result<PublishPacket> {
     if state != &StressState::Published {
         println!("Do nothing as connection not build");
         return Err(Error::new(ErrorKind::Other, "not ready"));
