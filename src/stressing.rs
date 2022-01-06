@@ -139,7 +139,7 @@ async fn connect_broker(client: &str, cfg: &config::Config) -> Result<TcpStream>
         }
     };
     println!(
-        "broker {} was connected send connpkt packet",
+        "broker {} was connected send connect packet",
         cfg.broker_addr
     );
     let mut conn = ConnectPacket::new(client);
