@@ -1,3 +1,4 @@
+use atomic_counter::AtomicCounter;
 use mqtt::{packet::*, Encodable};
 use rand::{self, Rng};
 use std::{
@@ -10,6 +11,7 @@ use std::{
 use tokio::{io::AsyncWriteExt, net::TcpStream, select, sync::broadcast, time, time::Instant};
 
 use crate::config;
+use crate::stressing_registry;
 
 #[derive(PartialEq, Debug)]
 enum StressState {
@@ -17,14 +19,22 @@ enum StressState {
     Published,
     Publishing,
 }
-pub async fn run(client: String, cfg: Arc<config::Config>) {
+
+pub async fn run(
+    registry: Arc<stressing_registry::MetricRegistry>,
+    client: String,
+    cfg: Arc<config::Config>,
+) {
     let mut state = StressState::Connecting;
     let mut stream;
     if let Ok(str) = connect_broker(&client, &cfg).await {
         stream = str;
     } else {
+        registry.exited_tasks.inc();
         return;
     }
+
+    registry.running_tasks.inc();
     let (mut rx, mut tx) = stream.split();
 
     let num = rand::thread_rng().gen_range(1..30000);
@@ -41,6 +51,7 @@ pub async fn run(client: String, cfg: Arc<config::Config>) {
                 if let Ok(packet) = new_publish_packet(&state, &cfg, &client, payload.clone()){
                     tx_ch.send(packet).unwrap();
                 }else {
+                    registry.timeout_pubacks.inc();
                     println!("heartbeat arrive but puback not received");
                 }
             },
@@ -56,7 +67,7 @@ pub async fn run(client: String, cfg: Arc<config::Config>) {
                     Ok(packet) => packet,
                     Err(e) => {
                         println!("parse packet error:{}", e);
-                        return ;
+                        break;
                     }
                 };
 
@@ -70,14 +81,16 @@ pub async fn run(client: String, cfg: Arc<config::Config>) {
                             println!("connection was established")
                         } else {
                             println!("recv invalid connack {:?} under the state {:?}, task ended!", _ack, state);
-                            return ;
+                            break;
                         }
                     }
                     VariablePacket::PubackPacket(_ack) => {
                         if state == StressState::Publishing {
                             state = StressState::Published;
+                            registry.publish_packets.inc();
                         } else {
                             println!("recv invalid Puback, puback should be return when state is publishing");
+                            registry.invalid_pubacks.inc();
                         }
                     }
                     _ => {
@@ -86,6 +99,10 @@ pub async fn run(client: String, cfg: Arc<config::Config>) {
             },
         }
     }
+
+    registry.exited_tasks.inc();
+
+    return;
 }
 
 fn new_publish_packet(

@@ -4,14 +4,19 @@ version = "0.1.0"
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+# actix-web = "4.0.0-beta.8" 
 
 [dependencies]
 clap = { version = "3.0.0", features = ["derive"] }
 tokio = {version = "1.9.0", features = ["full"]}
-actix-web = "4.0.0-beta.8" 
 mqtt-protocol = { version="0.11", features = ["tokio"] }
 serde = {version = "1.0", features = ["derive"]}
 serde_yaml = "0.8"
 futures = "0.3.19"
 rand = "0.8.4"
 base64 = "0.13.0"
+metrics = { version = "0.17.1" }
+metrics-exporter-prometheus = {version = "0.7.0"}
+metrics-util = { version = "^0.10"}
+sys-info = "0.9"
+atomic-counter = "1.0.1"
