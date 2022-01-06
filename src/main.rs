@@ -61,7 +61,6 @@ async fn main() {
             select! {
                 _ = heartbeat.tick() => {
                     registry.update(&labels);
-
                 },
             }
         }
