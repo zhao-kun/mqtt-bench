@@ -1,4 +1,3 @@
-use atomic_counter::AtomicCounter;
 use mqtt::{packet::*, Encodable};
 use rand::{self, Rng};
 use std::{
@@ -30,11 +29,11 @@ pub async fn run(
     if let Ok(str) = connect_broker(&client, &cfg).await {
         stream = str;
     } else {
-        registry.exited_tasks.inc();
+        registry.exited_tasks_inc();
         return;
     }
 
-    registry.running_tasks.inc();
+    registry.running_tasks_inc();
     let (mut rx, mut tx) = stream.split();
 
     let num = rand::thread_rng().gen_range(1..30000);
@@ -51,7 +50,7 @@ pub async fn run(
                 if let Ok(packet) = new_publish_packet(&state, &cfg, &client, payload.clone()){
                     tx_ch.send(packet).unwrap();
                 }else {
-                    registry.timeout_pubacks.inc();
+                    registry.timeout_pubacks_inc();
                     println!("heartbeat arrive but puback not received");
                 }
             },
@@ -87,10 +86,10 @@ pub async fn run(
                     VariablePacket::PubackPacket(_ack) => {
                         if state == StressState::Publishing {
                             state = StressState::Published;
-                            registry.publish_packets.inc();
+                            registry.publish_packets_inc();
                         } else {
                             println!("recv invalid Puback, puback should be return when state is publishing");
-                            registry.invalid_pubacks.inc();
+                            registry.invalid_pubacks_inc();
                         }
                     }
                     _ => {
@@ -100,7 +99,7 @@ pub async fn run(
         }
     }
 
-    registry.exited_tasks.inc();
+    registry.exited_tasks_inc();
 
     return;
 }

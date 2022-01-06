@@ -3,11 +3,11 @@ use metrics::gauge;
 
 #[derive(Debug)]
 pub struct MetricRegistry {
-    pub running_tasks: RelaxedCounter,
-    pub exited_tasks: RelaxedCounter,
-    pub invalid_pubacks: RelaxedCounter,
-    pub timeout_pubacks: RelaxedCounter,
-    pub publish_packets: RelaxedCounter,
+    running_tasks: RelaxedCounter,
+    exited_tasks: RelaxedCounter,
+    invalid_pubacks: RelaxedCounter,
+    timeout_pubacks: RelaxedCounter,
+    publish_packets: RelaxedCounter,
 }
 
 impl MetricRegistry {
@@ -19,6 +19,26 @@ impl MetricRegistry {
             timeout_pubacks: RelaxedCounter::new(0),
             publish_packets: RelaxedCounter::new(0),
         };
+    }
+
+    pub fn running_tasks_inc(self: &MetricRegistry) {
+        self.running_tasks.inc();
+    }
+
+    pub fn exited_tasks_inc(self: &MetricRegistry) {
+        self.exited_tasks.inc();
+    }
+
+    pub fn invalid_pubacks_inc(self: &MetricRegistry) {
+        self.invalid_pubacks.inc();
+    }
+
+    pub fn timeout_pubacks_inc(self: &MetricRegistry) {
+        self.timeout_pubacks.inc();
+    }
+
+    pub fn publish_packets_inc(self: &MetricRegistry) {
+        self.publish_packets.inc();
     }
 
     pub fn update(self: &MetricRegistry, labels: &[(String, String); 1]) {
