@@ -24,6 +24,7 @@ pub async fn run(
     client: String,
     cfg: Arc<config::Config>,
 ) {
+    // Send ConnectPacket to the broker
     let mut state = StressState::Connecting;
     let mut stream;
     if let Ok(str) = connect_broker(&client, &cfg).await {
@@ -32,18 +33,30 @@ pub async fn run(
         registry.exited_tasks_inc();
         return;
     }
-
-    registry.running_tasks_inc();
     let (mut rx, mut tx) = stream.split();
 
+    // Increases running task counter
+    registry.running_tasks_inc();
+
+    // Generating random delays for hashing publish packet action
     let num = rand::thread_rng().gen_range(1..30000);
     let mut heartbeat = time::interval_at(
         Instant::now().add(Duration::from_millis(num)),
         Duration::from_millis(cfg.think_time as u64),
     );
+
+    // Using a dedicated channel for sending publish packet
     let (tx_ch, _rx) = broadcast::channel(10);
     let mut rx_ch = tx_ch.subscribe();
-    let payload = get_payload(&cfg.payload);
+
+    // Calculating the payload
+    let payload = if cfg.is_payload_base64 {
+        get_payload(&cfg.payload)
+    } else {
+        Vec::from(cfg.payload.as_bytes())
+    };
+
+    // Main loop
     loop {
         select! {
             _ = heartbeat.tick() => {
@@ -99,8 +112,8 @@ pub async fn run(
         }
     }
 
+    // Updating counter of the exiting tasks
     registry.exited_tasks_inc();
-
     return;
 }
 
@@ -114,13 +127,13 @@ fn new_publish_packet(
         println!("Do nothing as connection not build");
         return Err(Error::new(ErrorKind::Other, "not ready"));
     }
-    let topic = String::from("/d2s/")
-        + &cfg.tenant_name
-        + "/"
-        + &cfg.info_model_id
-        + "/"
-        + client
-        + "/event/eventName";
+    let prefix = String::from("/d2s/") + &cfg.tenant_name + "/" + &cfg.info_model_id;
+    let topic = if cfg.same_things_id {
+        prefix + "/" + &cfg.client_id + &cfg.topic_suffix
+    } else {
+        prefix + "/" + client + &cfg.topic_suffix
+    };
+
     let packet = PublishPacket::new(
         mqtt::TopicName::new(topic).unwrap(),
         QoSWithPacketIdentifier::Level1(1),

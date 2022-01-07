@@ -7,19 +7,36 @@ use std::io::{Error, ErrorKind, Result};
 pub struct Config {
     #[serde(default = "default_broker_addr")]
     pub broker_addr: String,
+
     #[serde(default = "default_client_id")]
     pub client_id: String,
+
     #[serde(default = "default_connection")]
     pub connection: i32,
+
     #[serde(default = "default_user_name")]
     pub user_name: String,
+
     #[serde(default = "default_password")]
     pub password: String,
-    pub payload: String,
+
     #[serde(default = "default_think_time")]
     pub think_time: i32,
+
     pub info_model_id: String,
+
     pub tenant_name: String,
+
+    #[serde(default = "default_same_things_id")]
+    pub same_things_id: bool,
+
+    #[serde(default = "default_topic_suffix")]
+    pub topic_suffix: String,
+
+    #[serde(default = "default_is_payload_base64")]
+    pub is_payload_base64: bool,
+
+    pub payload: String,
 }
 
 fn default_broker_addr() -> String {
@@ -43,6 +60,18 @@ fn default_user_name() -> String {
 
 fn default_password() -> String {
     "admin".to_string()
+}
+
+fn default_same_things_id() -> bool {
+    true
+}
+
+fn default_topic_suffix() -> String {
+    "/event/eventName".to_string()
+}
+
+fn default_is_payload_base64() -> bool {
+    true
 }
 
 impl Config {
