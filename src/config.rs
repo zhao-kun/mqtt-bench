@@ -37,6 +37,9 @@ pub struct Config {
     pub is_payload_base64: bool,
 
     pub payload: String,
+
+    #[serde(default = "default_duration")]
+    pub duration: i32,
 }
 
 fn default_broker_addr() -> String {
@@ -72,6 +75,11 @@ fn default_topic_suffix() -> String {
 
 fn default_is_payload_base64() -> bool {
     true
+}
+
+// default duration is one minute.
+fn default_duration() -> i32 {
+    60
 }
 
 impl Config {

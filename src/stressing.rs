@@ -56,8 +56,15 @@ pub async fn run(
         Vec::from(cfg.payload.as_bytes())
     };
 
+    let loops = cfg.duration * 1000 / cfg.think_time;
+    let mut current = 0;
+
     // Main loop
     loop {
+        if current > loops {
+            println!("loop ended, task finished");
+            return;
+        }
         select! {
             _ = heartbeat.tick() => {
                 if let Ok(packet) = new_publish_packet(&state, &cfg, &client, payload.clone()){
@@ -66,6 +73,7 @@ pub async fn run(
                     registry.timeout_pubacks_inc();
                     println!("heartbeat arrive but puback not received");
                 }
+                current = current + 1;
             },
             result = rx_ch.recv() => {
                 let packet = result.unwrap();

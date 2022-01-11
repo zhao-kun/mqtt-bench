@@ -7,3 +7,4 @@ payload: "hello world"
 tenant_name: "zlg"
 info_model_id: "google"
 think_time: 5000
+duration: 60

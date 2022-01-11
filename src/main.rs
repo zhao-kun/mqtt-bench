@@ -34,6 +34,7 @@ async fn main() {
     let mut handles = vec![];
     let arc_cfg = Arc::new(config);
 
+    // Start prometheus exporter
     let builder = PrometheusBuilder::new();
     builder
         .idle_timeout(
