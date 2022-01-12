@@ -1,10 +1,16 @@
-broker_addr: 127.0.0.1:1883
-client_id: test
-connection: 100
-user_name: admin
-password: admin
-payload: "hello world"
-tenant_name: "zlg"
-info_model_id: "google"
-think_time: 5000
-duration: 60
+group: github.com/zhao-kun/mqtt-bench
+version: v1.0.1
+kind: publish
+metaData:
+  name: task-demo
+spec:
+  brokerAddr: 127.0.0.1:1883
+  clientId: test
+  connection: 100
+  userName: admin
+  password: admin
+  payload: "hello world"
+  tenantName: "zlg"
+  infoModelId: "google"
+  thinkTime: 5000
+  duration: 60

@@ -29,7 +29,13 @@ async fn main() {
         .get_matches();
 
     let path = matches.value_of("file").unwrap_or("config.yml");
-    let config = config::Config::from_file(path).expect("config file should be a valid yaml file");
+    let spec = config::Stressing::from_file(path).expect("config file should be a valid yaml file");
+
+    let config = match spec.spec {
+        config::Spec::Test(_) => panic!("unsupported spec"),
+        config::Spec::Publish(config) => config,
+    };
+
     let connection = config.connection;
     let mut handles = vec![];
     let arc_cfg = Arc::new(config);
