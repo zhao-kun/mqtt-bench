@@ -1,8 +1,9 @@
 use clap::Arg;
+use config::Config;
 use std::sync::Arc;
 use std::time::Duration;
 
-use tokio::{select, time, time::Instant};
+use tokio::{select, task::JoinHandle, time, time::Instant};
 
 use metrics_util::MetricKindMask;
 
@@ -28,18 +29,6 @@ async fn main() {
         )
         .get_matches();
 
-    let path = matches.value_of("file").unwrap_or("config.yml");
-    let spec = config::Stressing::from_file(path).expect("config file should be a valid yaml file");
-
-    let config = match spec.spec {
-        config::Spec::Test(_) => panic!("unsupported spec"),
-        config::Spec::Publish(config) => config,
-    };
-
-    let connection = config.connection;
-    let mut handles = vec![];
-    let arc_cfg = Arc::new(config);
-
     // Start prometheus exporter
     let builder = PrometheusBuilder::new();
     builder
@@ -49,6 +38,23 @@ async fn main() {
         )
         .install()
         .expect("failed to install Prometheus recorder");
+
+    let path = matches.value_of("file").unwrap_or("config.yml");
+    let spec = config::Stressing::from_file(path).expect("config file should be a valid yaml file");
+
+    let handles = match spec.spec {
+        config::Spec::Test(_) => panic!("unsupported spec"),
+        config::Spec::Publish(config) => start_publish_tasks(config),
+    };
+
+    futures::future::join_all(handles).await;
+    println!("All tasks run finished");
+}
+
+fn start_publish_tasks(config: Config) -> Vec<JoinHandle<()>> {
+    let connection = config.connection;
+    let mut handles = vec![];
+    let arc_cfg = Arc::new(config);
 
     let hostname = sys_info::hostname().unwrap();
     let reg = Arc::new(stressing_registry::MetricRegistry::new());
@@ -72,7 +78,5 @@ async fn main() {
             }
         }
     });
-
-    futures::future::join_all(handles).await;
-    println!("All tasks run finished");
+    return handles;
 }

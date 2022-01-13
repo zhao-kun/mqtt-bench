@@ -155,24 +155,6 @@ impl GroupVersionKind for Stressing {
     }
 }
 
-impl Config {
-    pub fn from_file(f: &str) -> Result<Config> {
-        match fs::read_to_string(f) {
-            Ok(contents) => match serde_yaml::from_str(&contents) {
-                Ok(result) => Ok(result),
-                Err(e) => {
-                    println!("unmarshal contents {} error: {}", contents, e);
-                    Err(Error::new(ErrorKind::Other, "unmarshal error"))
-                }
-            },
-            Err(e) => {
-                println!("parse file  {} failed {}", f, e);
-                return Err(e);
-            }
-        }
-    }
-}
-
 impl Stressing {
     pub fn from_file(f: &str) -> Result<Stressing> {
         match fs::read_to_string(f) {
