@@ -1,5 +1,18 @@
 use atomic_counter::{AtomicCounter, RelaxedCounter};
 use metrics::gauge;
+use std::fmt;
+
+#[derive(Debug, Clone)]
+pub enum TaskStatus {
+    Run,
+    Stop,
+}
+
+impl fmt::Display for TaskStatus {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
 
 #[derive(Debug)]
 pub struct MetricRegistry {
@@ -8,17 +21,28 @@ pub struct MetricRegistry {
     invalid_pubacks: RelaxedCounter,
     timeout_pubacks: RelaxedCounter,
     publish_packets: RelaxedCounter,
+    task_name: String,
+    task_status: TaskStatus,
 }
 
 impl MetricRegistry {
-    pub fn new() -> MetricRegistry {
+    pub fn new(task_name: String) -> MetricRegistry {
         return MetricRegistry {
             running_tasks: RelaxedCounter::new(0),
             exited_tasks: RelaxedCounter::new(0),
             invalid_pubacks: RelaxedCounter::new(0),
             timeout_pubacks: RelaxedCounter::new(0),
             publish_packets: RelaxedCounter::new(0),
+            task_name: task_name,
+            task_status: TaskStatus::Stop,
         };
+    }
+    pub fn start_task(self: &mut MetricRegistry) {
+        self.task_status = TaskStatus::Run;
+    }
+
+    pub fn task_stopped(self: &mut MetricRegistry) {
+        self.task_status = TaskStatus::Stop;
     }
 
     pub fn running_tasks_inc(self: &MetricRegistry) {
@@ -42,10 +66,34 @@ impl MetricRegistry {
     }
 
     pub fn update(self: &MetricRegistry, labels: &[(String, String); 1]) {
-        gauge!("running_tasks", self.running_tasks.get() as f64, labels);
-        gauge!("exited_tasks", self.exited_tasks.get() as f64, labels);
-        gauge!("invalid_pubacks", self.invalid_pubacks.get() as f64, labels);
-        gauge!("timeout_pubacks", self.timeout_pubacks.get() as f64, labels);
-        gauge!("publish_packets", self.publish_packets.get() as f64, labels);
+        let mut new_labels = vec![];
+        for label in labels.iter() {
+            new_labels.push((label.0.clone(), label.1.clone()));
+        }
+
+        new_labels.push(("task_name".to_string(), self.task_name.clone()));
+        new_labels.push(("task_status".to_string(), self.task_status.to_string()));
+
+        gauge!(
+            "running_tasks",
+            self.running_tasks.get() as f64,
+            &new_labels
+        );
+        gauge!("exited_tasks", self.exited_tasks.get() as f64, &new_labels);
+        gauge!(
+            "invalid_pubacks",
+            self.invalid_pubacks.get() as f64,
+            &new_labels
+        );
+        gauge!(
+            "timeout_pubacks",
+            self.timeout_pubacks.get() as f64,
+            &new_labels
+        );
+        gauge!(
+            "publish_packets",
+            self.publish_packets.get() as f64,
+            &new_labels
+        );
     }
 }

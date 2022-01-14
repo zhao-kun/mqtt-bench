@@ -1,5 +1,5 @@
 use clap::Arg;
-use config::Config;
+use config::{Config, GroupVersionKind};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -42,22 +42,23 @@ async fn main() {
     let path = matches.value_of("file").unwrap_or("config.yml");
     let spec = config::Stressing::from_file(path).expect("config file should be a valid yaml file");
 
+    let task_name = spec.meta().name;
     let handles = match spec.spec {
         config::Spec::Test(_) => panic!("unsupported spec"),
-        config::Spec::Publish(config) => start_publish_tasks(config),
+        config::Spec::Publish(config) => start_publish_tasks(task_name, config),
     };
 
     futures::future::join_all(handles).await;
     println!("All tasks run finished");
 }
 
-fn start_publish_tasks(config: Config) -> Vec<JoinHandle<()>> {
+fn start_publish_tasks(task_name: String, config: Config) -> Vec<JoinHandle<()>> {
     let connection = config.connection;
     let mut handles = vec![];
     let arc_cfg = Arc::new(config);
 
     let hostname = sys_info::hostname().unwrap();
-    let reg = Arc::new(stressing_registry::MetricRegistry::new());
+    let reg = Arc::new(stressing_registry::MetricRegistry::new(task_name));
 
     // Run tasks for the stressing test
     for i in (0..connection).rev() {

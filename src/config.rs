@@ -9,9 +9,9 @@ use std::{
 #[derive(Debug, PartialEq, Serialize, Deserialize, Default, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct MetaData {
-    name: String,
+    pub name: String,
     #[serde(default = "default_meta_label")]
-    label: HashMap<String, String>,
+    pub label: HashMap<String, String>,
 }
 #[derive(Debug, PartialEq, Serialize, Deserialize, Default, Clone)]
 #[serde(rename_all = "camelCase")]
