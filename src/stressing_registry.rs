@@ -1,6 +1,7 @@
 use atomic_counter::{AtomicCounter, RelaxedCounter};
 use metrics::gauge;
-use std::fmt;
+use std::sync::Mutex;
+use std::{cell::RefCell, fmt};
 
 #[derive(Debug, Clone)]
 pub enum TaskStatus {
@@ -22,7 +23,7 @@ pub struct MetricRegistry {
     timeout_pubacks: RelaxedCounter,
     publish_packets: RelaxedCounter,
     task_name: String,
-    task_status: TaskStatus,
+    task_status: Mutex<RefCell<TaskStatus>>,
 }
 
 impl MetricRegistry {
@@ -34,15 +35,15 @@ impl MetricRegistry {
             timeout_pubacks: RelaxedCounter::new(0),
             publish_packets: RelaxedCounter::new(0),
             task_name: task_name,
-            task_status: TaskStatus::Stop,
+            task_status: Mutex::new(RefCell::new(TaskStatus::Stop)),
         };
     }
-    pub fn start_task(self: &mut MetricRegistry) {
-        self.task_status = TaskStatus::Run;
+    pub fn start_task(self: &MetricRegistry) {
+        self.task_status.lock().unwrap().replace(TaskStatus::Run);
     }
 
-    pub fn task_stopped(self: &mut MetricRegistry) {
-        self.task_status = TaskStatus::Stop;
+    pub fn task_stopped(self: &MetricRegistry) {
+        self.task_status.lock().unwrap().replace(TaskStatus::Stop);
     }
 
     pub fn running_tasks_inc(self: &MetricRegistry) {
@@ -72,7 +73,10 @@ impl MetricRegistry {
         }
 
         new_labels.push(("task_name".to_string(), self.task_name.clone()));
-        new_labels.push(("task_status".to_string(), self.task_status.to_string()));
+        new_labels.push((
+            "task_status".to_string(),
+            self.task_status.lock().unwrap().borrow().to_string(),
+        ));
 
         gauge!(
             "running_tasks",

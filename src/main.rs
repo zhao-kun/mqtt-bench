@@ -2,6 +2,7 @@ use clap::Arg;
 use config::{Config, GroupVersionKind};
 use std::sync::Arc;
 use std::time::Duration;
+use stressing_registry::MetricRegistry;
 
 use tokio::{select, task::JoinHandle, time, time::Instant};
 
@@ -43,22 +44,25 @@ async fn main() {
     let spec = config::Stressing::from_file(path).expect("config file should be a valid yaml file");
 
     let task_name = spec.meta().name;
+    let original = stressing_registry::MetricRegistry::new(task_name);
+    original.start_task();
+    let reg = Arc::new(original);
     let handles = match spec.spec {
         config::Spec::Test(_) => panic!("unsupported spec"),
-        config::Spec::Publish(config) => start_publish_tasks(task_name, config),
+        config::Spec::Publish(config) => start_publish_tasks(reg.clone(), config),
     };
 
     futures::future::join_all(handles).await;
+    reg.task_stopped();
     println!("All tasks run finished");
 }
 
-fn start_publish_tasks(task_name: String, config: Config) -> Vec<JoinHandle<()>> {
+fn start_publish_tasks(reg: Arc<MetricRegistry>, config: Config) -> Vec<JoinHandle<()>> {
     let connection = config.connection;
     let mut handles = vec![];
     let arc_cfg = Arc::new(config);
 
     let hostname = sys_info::hostname().unwrap();
-    let reg = Arc::new(stressing_registry::MetricRegistry::new(task_name));
 
     // Run tasks for the stressing test
     for i in (0..connection).rev() {
