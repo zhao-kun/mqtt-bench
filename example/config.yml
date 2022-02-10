@@ -8,9 +8,9 @@ spec:
   clientId: test
   connection: 100
   userName: admin
-  password: admin
+  password: eyJhbGciOiJIUzUxMiJ9.eyJ0ZW5hbnRfbmFtZSI6Imdvb2dsZSIsImluZm9fbW9kZWxfbmFtZSI6IkRlbW9WMSIsImlzcyI6Imh0dHA6Ly9pb3QtdGhpbmdzIiwidGhpcmRfdGhpbmdzX2lkIjoiMzIxIiwiaW5mb19tb2RlbF9pZCI6MzI1LCJleHAiOjE2NDIzMjEzOTEsImlhdCI6MTY0MjMwMzM5MX0.ZGmPWgmDFXvhyEBnvxx0qVHrUijtPrzo78IJMJNnoSViEOR2sWRiDYrdbYh-i6zn-h5ZKzB8qRsinRaXU4tLDA
   payload: "hello world"
-  tenantName: "zlg"
-  infoModelId: "google"
+  tenantName: "google"
+  infoModelId: "demo_v1"
   thinkTime: 5000
   duration: 60
