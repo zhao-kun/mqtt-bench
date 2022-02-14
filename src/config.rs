@@ -113,7 +113,7 @@ fn default_password() -> String {
 }
 
 fn default_same_client_id() -> bool {
-    true
+    false
 }
 
 fn default_topic_suffix() -> String {

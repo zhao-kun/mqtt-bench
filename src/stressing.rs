@@ -164,6 +164,8 @@ async fn connect_broker(client: &str, cfg: &config::Config) -> Result<TcpStream>
         client
     };
 
+    println!("client id is {}", client_id);
+
     let mut conn = ConnectPacket::new(client_id);
     conn.set_clean_session(true);
     conn.set_user_name(Option::Some(cfg.user_name.clone()));
