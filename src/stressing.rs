@@ -67,7 +67,7 @@ pub async fn run(
         }
         select! {
             _ = heartbeat.tick() => {
-                if let Ok(packet) = new_publish_packet(&state, &cfg, &client, payload.clone()){
+                if let Ok(packet) = new_publish_packet(&state, &cfg,  payload.clone()){
                     tx_ch.send(packet).unwrap();
                 }else {
                     registry.timeout_pubacks_inc();
@@ -128,7 +128,6 @@ pub async fn run(
 fn new_publish_packet(
     state: &StressState,
     cfg: &config::Config,
-    client: &str,
     payload: Vec<u8>,
 ) -> Result<PublishPacket> {
     if state != &StressState::Published {
@@ -136,11 +135,7 @@ fn new_publish_packet(
         return Err(Error::new(ErrorKind::Other, "not ready"));
     }
     let prefix = String::from("/d2s/") + &cfg.tenant_name + "/" + &cfg.info_model_id;
-    let topic = if cfg.same_things_id {
-        prefix + "/" + &cfg.client_id + &cfg.topic_suffix
-    } else {
-        prefix + "/" + client + &cfg.topic_suffix
-    };
+    let topic = prefix + "/" + &cfg.third_things_id + &cfg.topic_suffix;
 
     let packet = PublishPacket::new(
         mqtt::TopicName::new(topic).unwrap(),
@@ -162,7 +157,14 @@ async fn connect_broker(client: &str, cfg: &config::Config) -> Result<TcpStream>
         "broker {} was connected send connect packet",
         cfg.broker_addr
     );
-    let mut conn = ConnectPacket::new(client);
+
+    let client_id = if cfg.same_client_id {
+        &cfg.client_id
+    } else {
+        client
+    };
+
+    let mut conn = ConnectPacket::new(client_id);
     conn.set_clean_session(true);
     conn.set_user_name(Option::Some(cfg.user_name.clone()));
     conn.set_password(Option::Some(cfg.password.clone()));

@@ -5,7 +5,8 @@ metaData:
   name: task-demo
 spec:
   brokerAddr: 127.0.0.1:1883
-  clientId: test
+  clientId: client_id
+  thirdThingsId: thirdThingsID
   connection: 100
   userName: admin
   password: eyJhbGciOiJIUzUxMiJ9.eyJ0ZW5hbnRfbmFtZSI6Imdvb2dsZSIsImluZm9fbW9kZWxfbmFtZSI6IkRlbW9WMSIsImlzcyI6Imh0dHA6Ly9pb3QtdGhpbmdzIiwidGhpcmRfdGhpbmdzX2lkIjoiMzIxIiwiaW5mb19tb2RlbF9pZCI6MzI1LCJleHAiOjE2NDIzMjEzOTEsImlhdCI6MTY0MjMwMzM5MX0.ZGmPWgmDFXvhyEBnvxx0qVHrUijtPrzo78IJMJNnoSViEOR2sWRiDYrdbYh-i6zn-h5ZKzB8qRsinRaXU4tLDA

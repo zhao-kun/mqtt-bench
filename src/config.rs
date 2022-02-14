@@ -68,8 +68,8 @@ pub struct Config {
 
     pub tenant_name: String,
 
-    #[serde(default = "default_same_things_id")]
-    pub same_things_id: bool,
+    #[serde(default = "default_same_client_id")]
+    pub same_client_id: bool,
 
     #[serde(default = "default_topic_suffix")]
     pub topic_suffix: String,
@@ -81,6 +81,8 @@ pub struct Config {
 
     #[serde(default = "default_duration")]
     pub duration: i32,
+
+    pub third_things_id: String,
 }
 
 fn default_meta_label() -> HashMap<String, String> {
@@ -110,7 +112,7 @@ fn default_password() -> String {
     "admin".to_string()
 }
 
-fn default_same_things_id() -> bool {
+fn default_same_client_id() -> bool {
     true
 }
 
