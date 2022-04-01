@@ -47,7 +47,7 @@ pub struct Value {
 #[serde(rename_all = "camelCase")]
 pub struct Config {
     #[serde(default = "default_broker_addr")]
-    pub broker_addr: String,
+    pub broker_addr: Vec<String>,
 
     #[serde(default = "default_client_id")]
     pub client_id: String,
@@ -89,8 +89,8 @@ fn default_meta_label() -> HashMap<String, String> {
     HashMap::new()
 }
 
-fn default_broker_addr() -> String {
-    "127.0.0.1:1883".to_string()
+fn default_broker_addr() -> Vec<String> {
+    vec!["127.0.0.1:1883".to_string()]
 }
 
 fn default_client_id() -> String {
@@ -189,7 +189,7 @@ kind: publish
 metaData:
   name: task-demo
 spec:
-  brokerAddr: 127.0.0.1:1883
+  brokerAddr: ["127.0.0.1:1883"]
   clientId: test
   connection: 100
   userName: admin
@@ -199,6 +199,7 @@ spec:
   infoModelId: "google"
   thinkTime: 5000
   duration: 60
+  thirdThingsId: client1
 "#;
     static YAML_STR2: &str = r#"group: github.com/zhao-kun/mqtt-bench
 version: v1.0.1

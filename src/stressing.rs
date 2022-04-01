@@ -146,16 +146,17 @@ fn new_publish_packet(
 }
 
 async fn connect_broker(client: &str, cfg: &config::Config) -> Result<TcpStream> {
-    let mut stream = match TcpStream::connect(&cfg.broker_addr).await {
+    let num = rand::thread_rng().gen_range(1..cfg.broker_addr.len());
+    let mut stream = match TcpStream::connect(&cfg.broker_addr[num]).await {
         Ok(stream) => stream,
         Err(e) => {
-            println!("connect {} error: {}", cfg.broker_addr, e);
+            println!("connect {} error: {}", cfg.broker_addr[num], e);
             return Err(e);
         }
     };
     println!(
         "broker {} was connected send connect packet",
-        cfg.broker_addr
+        cfg.broker_addr[num]
     );
 
     let client_id = if cfg.same_client_id {
