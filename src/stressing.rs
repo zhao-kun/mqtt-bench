@@ -131,7 +131,10 @@ fn new_publish_packet(
     payload: Vec<u8>,
 ) -> Result<PublishPacket> {
     if state != &StressState::Published {
-        println!("Do nothing as connection not build");
+        println!(
+            "Do nothing as connection not build, current state is {:?}",
+            state
+        );
         return Err(Error::new(ErrorKind::Other, "not ready"));
     }
     let prefix = String::from("/d2s/") + &cfg.tenant_name + "/" + &cfg.info_model_id;
@@ -146,18 +149,19 @@ fn new_publish_packet(
 }
 
 async fn connect_broker(client: &str, cfg: &config::Config) -> Result<TcpStream> {
-    let num = rand::thread_rng().gen_range(1..cfg.broker_addr.len());
-    let mut stream = match TcpStream::connect(&cfg.broker_addr[num]).await {
+    let mut broker_addr = cfg.broker_addr[0].clone();
+    if cfg.broker_addr.len() > 1 {
+        let num = rand::thread_rng().gen_range(0..cfg.broker_addr.len());
+        broker_addr = cfg.broker_addr[num].clone()
+    }
+    let mut stream = match TcpStream::connect(&broker_addr).await {
         Ok(stream) => stream,
         Err(e) => {
-            println!("connect {} error: {}", cfg.broker_addr[num], e);
+            println!("connect {} error: {}", broker_addr, e);
             return Err(e);
         }
     };
-    println!(
-        "broker {} was connected send connect packet",
-        cfg.broker_addr[num]
-    );
+    println!("broker {} was connected send connect packet", broker_addr);
 
     let client_id = if cfg.same_client_id {
         &cfg.client_id
