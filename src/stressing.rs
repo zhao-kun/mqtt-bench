@@ -69,11 +69,11 @@ pub async fn run(
             _ = heartbeat.tick() => {
                 if let Ok(packet) = new_publish_packet(&state, &cfg,  payload.clone()){
                     tx_ch.send(packet).unwrap();
+                    current = current + 1;
                 }else {
                     registry.timeout_pubacks_inc();
                     println!("heartbeat arrive but puback not received");
                 }
-                current = current + 1;
             },
             result = rx_ch.recv() => {
                 let packet = result.unwrap();
