@@ -1,6 +1,7 @@
 use mqtt::{packet::*, Encodable};
 use rand::{self, Rng};
 use std::{
+    collections::HashMap,
     io::{Error, ErrorKind, Result},
     ops::Add,
     panic,
@@ -11,6 +12,7 @@ use tokio::{io::AsyncWriteExt, net::TcpStream, select, sync::broadcast, time, ti
 
 use crate::config;
 use crate::stressing_registry;
+use text_template::*;
 
 #[derive(PartialEq, Debug)]
 enum StressState {
@@ -58,6 +60,7 @@ pub async fn run(
 
     let loops = cfg.duration * 1000 / cfg.think_time;
     let mut current = 0;
+    let topic = get_topic(&client, &cfg);
 
     // Main loop
     loop {
@@ -67,7 +70,7 @@ pub async fn run(
         }
         select! {
             _ = heartbeat.tick() => {
-                if let Ok(packet) = new_publish_packet(&state, &cfg,  payload.clone()){
+                if let Ok(packet) = new_publish_packet(&state, &topic,  payload.clone()){
                     tx_ch.send(packet).unwrap();
                     current = current + 1;
                 }else {
@@ -127,7 +130,7 @@ pub async fn run(
 
 fn new_publish_packet(
     state: &StressState,
-    cfg: &config::Config,
+    topic: &String,
     payload: Vec<u8>,
 ) -> Result<PublishPacket> {
     if state != &StressState::Published {
@@ -137,8 +140,6 @@ fn new_publish_packet(
         );
         return Err(Error::new(ErrorKind::Other, "not ready"));
     }
-    let prefix = String::from("/d2s/") + &cfg.tenant_name + "/" + &cfg.info_model_id;
-    let topic = prefix + "/" + &cfg.third_things_id + &cfg.topic_suffix;
 
     let packet = PublishPacket::new(
         mqtt::TopicName::new(topic).unwrap(),
@@ -146,6 +147,21 @@ fn new_publish_packet(
         payload,
     );
     return Ok(packet);
+}
+
+fn get_topic(client: &String, cfg: &config::Config) -> String {
+    //let prefix = String::from("/d2s/") + &cfg.tenant_name + "/" + &cfg.info_model_id;
+    //let topic = prefix + "/" + &cfg.third_things_id + &cfg.topic_suffix;
+    let mut context: HashMap<&str, &str> = cfg
+        .data
+        .iter()
+        .map(|(k, v)| (k.as_str(), v.as_str()))
+        .collect();
+    context.insert("client_id", client.as_str());
+
+    let template = Template::from(cfg.topic_template.as_str());
+    let text = template.fill_in(&context);
+    return text.to_string();
 }
 
 async fn connect_broker(client: &str, cfg: &config::Config) -> Result<TcpStream> {

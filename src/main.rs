@@ -66,7 +66,7 @@ fn start_publish_tasks(reg: Arc<MetricRegistry>, config: Config) -> Vec<JoinHand
     let hostname = sys_info::hostname().unwrap();
 
     // Run tasks for the stressing test
-    for i in (0..connection).rev() {
+    for _i in (0..connection).rev() {
         let cfg = arc_cfg.clone();
         let s: String = rand::thread_rng()
             .sample_iter(&Alphanumeric)

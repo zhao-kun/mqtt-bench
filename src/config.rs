@@ -64,10 +64,6 @@ pub struct Config {
     #[serde(default = "default_think_time")]
     pub think_time: i32,
 
-    pub info_model_id: String,
-
-    pub tenant_name: String,
-
     #[serde(default = "default_same_client_id")]
     pub same_client_id: bool,
 
@@ -82,7 +78,14 @@ pub struct Config {
     #[serde(default = "default_duration")]
     pub duration: i32,
 
-    pub third_things_id: String,
+    #[serde(default = "default_data")]
+    pub data: HashMap<String, String>,
+
+    pub topic_template: String,
+}
+
+fn default_data() -> HashMap<String, String> {
+    HashMap::new()
 }
 
 fn default_meta_label() -> HashMap<String, String> {
@@ -181,7 +184,7 @@ fn spec_from_str(contents: &str) -> Result<Stressing> {
 
 #[cfg(test)]
 mod tests {
-    use crate::config::{spec_from_str, GroupVersionKind};
+    use crate::config::{spec_from_str, GroupVersionKind, Spec};
 
     static YAML_STR: &str = r#"group: github.com/zhao-kun/mqtt-bench
 version: v1.0.1
@@ -195,11 +198,13 @@ spec:
   userName: admin
   password: admin
   payload: "hello world"
-  tenantName: "zlg"
-  infoModelId: "google"
   thinkTime: 5000
   duration: 60
-  thirdThingsId: client1
+  topicTemplate: /prefix/${tenantName}/${infoModelId}/${thirdThingsId}
+  data:
+    tenantName: "zlg"
+    infoModelId: "google"
+    thirdThingsId: client1
 "#;
     static YAML_STR2: &str = r#"group: github.com/zhao-kun/mqtt-bench
 version: v1.0.1
@@ -218,6 +223,12 @@ spec:
         assert!(spec.version() == "v1.0.1");
         assert!(spec.meta().name == "task-demo");
         assert!(spec.kind() == "publish");
+        let config = match spec.spec {
+            Spec::Publish(publish) => publish,
+            _ => panic!("should be publish spec"),
+        };
+        assert!(config.data["tenantName"] == "zlg");
+        assert!(config.topic_template == "/prefix/${tenantName}/${infoModelId}/${thirdThingsId}");
     }
 
     #[test]

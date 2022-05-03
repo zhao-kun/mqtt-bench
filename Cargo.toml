@@ -19,3 +19,4 @@ metrics-exporter-prometheus = {version = "0.7.0"}
 metrics-util = { version = "^0.10"}
 sys-info = "0.9"
 atomic-counter = "1.0.1"
+text-template = "0.1.0"
