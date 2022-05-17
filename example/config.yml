@@ -6,12 +6,14 @@ metaData:
 spec:
   brokerAddr: ["127.0.0.1:1883"]
   clientId: client_id
-  thirdThingsId: thirdThingsID
   connection: 100
   userName: admin
   password: bbbb
-  payload: "hello world"
-  tenantName: "google"
-  infoModelId: "demo_v1"
+  topicTemplate: /prefix/${tenantName}/${infoModelId}/${thirdThingsId}
   thinkTime: 5000
   duration: 60
+  payload: "hello world"
+  data:
+    tenantName: "google"
+    infoModelId: "demo_v1"
+    thirdThingsId: thirdThingsID
