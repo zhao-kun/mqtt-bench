@@ -17,7 +17,7 @@ cargo build --release
 
 ### Usage
 
-You can start a benchmark via run target with a config file:
+You can start a benchmark via running the target with a config file:
 
 ```
 mqtt-bench -f config.yaml
@@ -42,7 +42,7 @@ spec:
   payload: "hello world" # the payload will be published to mqtt server
   thinkTime: 5000 # the duration between two action (sent packet to mqtt server) of a single things
   duration: 60 # The duration of the benchmarking
-  topicTemplate: "/${tenantName}/${infoModelId}/${thirdThingsId}/${topicSuffix}" # topic template, evaluated with the `data` section
+  topicTemplate: "/${tenantName}/${infoModelId}/${thirdThingsId}/raw" # topic template, evaluated with the `data` section
   data: # attending to evaluating the topicTemplate
     tenantName: "google"
     infoModelId: "demo_v1"
