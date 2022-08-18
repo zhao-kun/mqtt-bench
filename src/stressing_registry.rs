@@ -22,6 +22,8 @@ pub struct MetricRegistry {
     invalid_pubacks: RelaxedCounter,
     timeout_pubacks: RelaxedCounter,
     publish_packets: RelaxedCounter,
+    established_connection: RelaxedCounter,
+    ongoing_connection: RelaxedCounter,
     task_name: String,
     task_status: Mutex<TaskStatus>,
 }
@@ -34,6 +36,8 @@ impl MetricRegistry {
             invalid_pubacks: RelaxedCounter::new(0),
             timeout_pubacks: RelaxedCounter::new(0),
             publish_packets: RelaxedCounter::new(0),
+            established_connection: RelaxedCounter::new(0),
+            ongoing_connection: RelaxedCounter::new(0),
             task_name: task_name,
             task_status: Mutex::new(TaskStatus::Stop),
         };
@@ -66,6 +70,14 @@ impl MetricRegistry {
 
     pub fn timeout_pubacks_inc(self: &MetricRegistry) {
         self.timeout_pubacks.inc();
+    }
+
+    pub fn ongoing_connection_inc(self: &MetricRegistry) {
+        self.ongoing_connection.inc();
+    }
+
+    pub fn established_connection_inc(self: &MetricRegistry) {
+        self.established_connection.inc();
     }
 
     pub fn publish_packets_inc(self: &MetricRegistry) {
@@ -105,5 +117,15 @@ impl MetricRegistry {
             self.publish_packets.get() as f64,
             &new_labels
         );
+        gauge!(
+            "established_connection",
+            self.established_connection.get() as f64,
+            &new_labels
+        );
+        gauge!(
+            "ongoing_connection",
+            self.ongoing_connection.get() as f64,
+            &new_labels
+        )
     }
 }

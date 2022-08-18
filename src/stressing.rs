@@ -39,6 +39,7 @@ pub async fn run(
 
     // Increases running task counter
     registry.running_tasks_inc();
+    registry.ongoing_connection_inc();
 
     // Generating random delays for hashing publish packet action
     let num = rand::thread_rng().gen_range(1..30000);
@@ -101,7 +102,8 @@ pub async fn run(
                     VariablePacket::ConnackPacket(_ack) => {
                         if state == StressState::Connecting && _ack.connect_return_code() == mqtt::control::ConnectReturnCode::ConnectionAccepted{
                             state = StressState::Published;
-                            println!("connection was established")
+                            println!("connection was established");
+                            registry.established_connection_inc();
                         } else {
                             println!("recv invalid connack {:?} under the state {:?}, task ended!", _ack, state);
                             break;
