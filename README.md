@@ -15,6 +15,12 @@ or
 cargo build --release
 ```
 
+### Build from docker
+
+```bash
+docker build -f Docker -t mqtt-bench:v1.0 .
+```
+
 ### Usage
 
 You can start a benchmark via running the target with a config file:
