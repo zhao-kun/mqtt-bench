@@ -56,8 +56,8 @@ async fn main() {
     futures::future::join_all(handles).await;
     reg.task_stopped();
 
+    println!("Sleep 30 seconds before exiting...");
     sleep(Duration::from_secs(30));
-
     println!("All tasks run finished");
 }
 
