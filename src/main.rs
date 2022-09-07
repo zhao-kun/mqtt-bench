@@ -1,11 +1,11 @@
 use clap::Arg;
 use config::{Config, GroupVersionKind};
-use std::sync::Arc;
+use std::{sync::Arc, thread::sleep};
 use std::time::Duration;
 use stressing_registry::MetricRegistry;
 
 use rand::{distributions::Alphanumeric, Rng};
-use tokio::{select, task::JoinHandle, time, time::Instant};
+use tokio::{select, task::JoinHandle, time::{self}, time::Instant};
 
 use metrics_util::MetricKindMask;
 
@@ -55,6 +55,9 @@ async fn main() {
 
     futures::future::join_all(handles).await;
     reg.task_stopped();
+
+    sleep(Duration::from_secs(30));
+
     println!("All tasks run finished");
 }
 
