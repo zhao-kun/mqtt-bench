@@ -6,7 +6,6 @@ metaData:
 spec:
   brokerAddr: ["127.0.0.1:1883"]
   clientId: client_id
-  connectionPerConnection: 1
   dynamicToken: 
     url: http://localhost:8080/v1/
     payload: '{"username": "${tenantName}", "password": "${password}" }'
