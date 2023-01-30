@@ -1,9 +1,10 @@
 use serde::{Deserialize, Serialize};
 use serde_yaml;
 use std::{
-    collections::HashMap,
+    collections::{HashMap},
     fs,
     io::{Error, ErrorKind, Result},
+    
 };
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Default, Clone)]
@@ -45,6 +46,24 @@ pub struct Value {
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
+pub struct DynamicToken {
+    pub url :String,
+    pub payload: String,
+    pub token_extractor: String,
+}
+
+impl DynamicToken {
+    pub fn new() -> DynamicToken {
+        DynamicToken { 
+            url: "".to_string(), 
+            payload: "".to_string(), 
+            token_extractor: "".to_string() 
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct Config {
     #[serde(default = "default_broker_addr")]
     pub broker_addr: Vec<String>,
@@ -73,19 +92,31 @@ pub struct Config {
     #[serde(default = "default_is_payload_base64")]
     pub is_payload_base64: bool,
 
-    pub payload: String,
+    #[serde(default = "default_things_payload")]
+    pub thingsPayload: HashMap<String, String>,
 
     #[serde(default = "default_duration")]
     pub duration: i32,
 
-    #[serde(default = "default_data")]
-    pub data: HashMap<String, String>,
+    #[serde(default = "default_things_info")]
+    pub thingsInfo: Vec<HashMap<String, String>>,
 
     pub topic_template: String,
+
+    #[serde(default = "default_dynamic_token")]
+    pub dynamicToken: DynamicToken,
 }
 
-fn default_data() -> HashMap<String, String> {
+fn default_dynamic_token() -> DynamicToken {
+    DynamicToken::new()
+}
+
+fn default_things_payload() -> HashMap<String, String> {
     HashMap::new()
+}
+
+fn default_things_info() -> Vec<HashMap<String, String>> {
+    Vec::new()
 }
 
 fn default_meta_label() -> HashMap<String, String> {
@@ -193,18 +224,24 @@ metaData:
   name: task-demo
 spec:
   brokerAddr: ["127.0.0.1:1883"]
-  clientId: test
-  connection: 100
+  clientId: client_id
+  connectionPerConnection: 1
+  dynamicToken: 
+    url: http://localhost:8080/v1/
+    payload: '{"username": "${tenantName}", "password": "${password}" }'
+    tokenExtractor: ".data.token"
   userName: admin
-  password: admin
-  payload: "hello world"
+  password: bbbb
+  topicTemplate: /prefix/${tenantName}/${infoModelId}/${thirdThingsId}
   thinkTime: 5000
   duration: 60
-  topicTemplate: /prefix/${tenantName}/${infoModelId}/${thirdThingsId}
-  data:
-    tenantName: "zlg"
-    infoModelId: "google"
-    thirdThingsId: client1
+  thingsPayloads:
+   "google": "hello world"
+  thingsInfo:
+  - tenantName: "google"
+    infoModelId: "demo_v1"
+    thirdThingsId: thirdThingsID
+    password: "things_password"
 "#;
     static YAML_STR2: &str = r#"group: github.com/zhao-kun/mqtt-bench
 version: v1.0.1
@@ -227,7 +264,8 @@ spec:
             Spec::Publish(publish) => publish,
             _ => panic!("should be publish spec"),
         };
-        assert!(config.data["tenantName"] == "zlg");
+        assert!(config.thingsInfo[0]["tenantName"] == "google");
+        assert!(config.thingsInfo[0]["password"] == "things_password");
         assert!(config.topic_template == "/prefix/${tenantName}/${infoModelId}/${thirdThingsId}");
     }
 
