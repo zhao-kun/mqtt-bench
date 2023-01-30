@@ -62,14 +62,14 @@ async fn main() {
 }
 
 fn start_publish_tasks(reg: Arc<MetricRegistry>, config: Config) -> Vec<JoinHandle<()>> {
-    let connection = config.connection;
+    let len = config.things_info.len();
     let mut handles = vec![];
     let arc_cfg = Arc::new(config);
 
     let hostname = sys_info::hostname().unwrap();
 
     // Run tasks for the stressing test
-    for _i in (0..connection).rev() {
+    for i in 0..len {
         let cfg = arc_cfg.clone();
         let s: String = rand::thread_rng()
             .sample_iter(&Alphanumeric)
@@ -77,7 +77,7 @@ fn start_publish_tasks(reg: Arc<MetricRegistry>, config: Config) -> Vec<JoinHand
             .map(char::from)
             .collect();
         let client = cfg.client_id.clone() + &s;
-        handles.push(tokio::spawn(stressing::run(reg.clone(), client, cfg)))
+        handles.push(tokio::spawn(stressing::run(reg.clone(), client, cfg, i)))
     }
 
     let registry = reg.clone();

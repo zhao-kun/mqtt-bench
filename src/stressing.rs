@@ -25,11 +25,12 @@ pub async fn run(
     registry: Arc<stressing_registry::MetricRegistry>,
     client: String,
     cfg: Arc<config::Config>,
+    idx: usize,
 ) {
     // Send ConnectPacket to the broker
     let mut state = StressState::Connecting;
     let mut stream;
-    if let Ok(str) = connect_broker(&client, &cfg).await {
+    if let Ok(str) = connect_broker(&client, &cfg, idx).await {
         stream = str;
     } else {
         registry.exited_tasks_inc();
@@ -53,15 +54,11 @@ pub async fn run(
     let mut rx_ch = tx_ch.subscribe();
 
     // Calculating the payload
-    let payload = if cfg.is_payload_base64 {
-        get_payload(&cfg.payload)
-    } else {
-        Vec::from(cfg.payload.as_bytes())
-    };
+    let payload = get_payload(&cfg, idx);
 
     let loops = cfg.duration * 1000 / cfg.think_time;
     let mut current = 0;
-    let topic = get_topic(&client, &cfg);
+    let topic = get_topic(&client, &cfg, idx);
 
     // Main loop
     loop {
@@ -151,11 +148,11 @@ fn new_publish_packet(
     return Ok(packet);
 }
 
-fn get_topic(client: &String, cfg: &config::Config) -> String {
+fn get_topic(client: &String, cfg: &config::Config, idx: usize) -> String {
     //let prefix = String::from("/d2s/") + &cfg.tenant_name + "/" + &cfg.info_model_id;
     //let topic = prefix + "/" + &cfg.third_things_id + &cfg.topic_suffix;
     let mut context: HashMap<&str, &str> = cfg
-        .data
+        .things_info[idx]
         .iter()
         .map(|(k, v)| (k.as_str(), v.as_str()))
         .collect();
@@ -166,7 +163,7 @@ fn get_topic(client: &String, cfg: &config::Config) -> String {
     return text.to_string();
 }
 
-async fn connect_broker(client: &str, cfg: &config::Config) -> Result<TcpStream> {
+async fn connect_broker(client: &str, cfg: &config::Config, idx: usize) -> Result<TcpStream> {
     let mut broker_addr = cfg.broker_addr[0].clone();
     if cfg.broker_addr.len() > 1 {
         let num = rand::thread_rng().gen_range(0..cfg.broker_addr.len());
@@ -181,10 +178,14 @@ async fn connect_broker(client: &str, cfg: &config::Config) -> Result<TcpStream>
     };
     println!("broker {} was connected send connect packet", broker_addr);
 
-    let client_id = if cfg.same_client_id {
-        &cfg.client_id
-    } else {
+    let res :String;
+    let client_id = if cfg.random_client_id {
         client
+    } else {
+        let str =  cfg.things_info[idx].get("infoModelId").unwrap().to_owned().clone();
+        let third = cfg.things_info[idx].get("thirdThingsID").unwrap();
+        res = str + third;
+        &res
     };
 
     println!("client id is {}", client_id);
@@ -200,9 +201,17 @@ async fn connect_broker(client: &str, cfg: &config::Config) -> Result<TcpStream>
     Ok(stream)
 }
 
-fn get_payload(origin: &str) -> Vec<u8> {
-    return match base64::decode(origin) {
-        Ok(payload) => payload,
-        Err(_) => Vec::from(origin.as_bytes()),
+fn get_payload(cfg: &config::Config, idx: usize) -> Vec<u8> {
+    let tenant_name = cfg.things_info[idx].get("tenantName").unwrap();
+    let payload = cfg.things_payload.get(tenant_name).unwrap();
+
+    return if cfg.is_payload_base64 {
+        return match base64::decode(payload) {
+            Ok(payload) => payload,
+            Err(_) => Vec::from(payload.as_bytes()),
+        };
+        //get_payload(&cfg.payload, idx)
+    } else {
+        Vec::from(payload.as_bytes())
     };
 }

@@ -71,9 +71,6 @@ pub struct Config {
     #[serde(default = "default_client_id")]
     pub client_id: String,
 
-    #[serde(default = "default_connection")]
-    pub connection: i32,
-
     #[serde(default = "default_user_name")]
     pub user_name: String,
 
@@ -83,8 +80,8 @@ pub struct Config {
     #[serde(default = "default_think_time")]
     pub think_time: i32,
 
-    #[serde(default = "default_same_client_id")]
-    pub same_client_id: bool,
+    #[serde(default = "default_random_client_id")]
+    pub random_client_id: bool,
 
     #[serde(default = "default_topic_suffix")]
     pub topic_suffix: String,
@@ -93,18 +90,18 @@ pub struct Config {
     pub is_payload_base64: bool,
 
     #[serde(default = "default_things_payload")]
-    pub thingsPayload: HashMap<String, String>,
+    pub things_payload: HashMap<String, String>,
 
     #[serde(default = "default_duration")]
     pub duration: i32,
 
     #[serde(default = "default_things_info")]
-    pub thingsInfo: Vec<HashMap<String, String>>,
+    pub things_info: Vec<HashMap<String, String>>,
 
     pub topic_template: String,
 
     #[serde(default = "default_dynamic_token")]
-    pub dynamicToken: DynamicToken,
+    pub dynamic_token: DynamicToken,
 }
 
 fn default_dynamic_token() -> DynamicToken {
@@ -131,10 +128,6 @@ fn default_client_id() -> String {
     "test".to_string()
 }
 
-fn default_connection() -> i32 {
-    1000
-}
-
 fn default_think_time() -> i32 {
     30000
 }
@@ -146,7 +139,7 @@ fn default_password() -> String {
     "admin".to_string()
 }
 
-fn default_same_client_id() -> bool {
+fn default_random_client_id() -> bool {
     false
 }
 
@@ -225,7 +218,6 @@ metaData:
 spec:
   brokerAddr: ["127.0.0.1:1883"]
   clientId: client_id
-  connectionPerConnection: 1
   dynamicToken: 
     url: http://localhost:8080/v1/
     payload: '{"username": "${tenantName}", "password": "${password}" }'
@@ -264,9 +256,12 @@ spec:
             Spec::Publish(publish) => publish,
             _ => panic!("should be publish spec"),
         };
-        assert!(config.thingsInfo[0]["tenantName"] == "google");
-        assert!(config.thingsInfo[0]["password"] == "things_password");
+        assert!(config.things_info[0]["tenantName"] == "google");
+        assert!(config.things_info[0]["password"] == "things_password");
         assert!(config.topic_template == "/prefix/${tenantName}/${infoModelId}/${thirdThingsId}");
+        assert!(config.dynamic_token.url == "http://localhost:8080/v1/");
+        assert!(config.dynamic_token.payload == r#"{"username": "${tenantName}", "password": "${password}" }"#);
+        assert!(config.dynamic_token.token_extractor ==  ".data.token");
     }
 
     #[test]
