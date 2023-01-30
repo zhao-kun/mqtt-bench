@@ -151,11 +151,7 @@ fn new_publish_packet(
 fn get_topic(client: &String, cfg: &config::Config, idx: usize) -> String {
     //let prefix = String::from("/d2s/") + &cfg.tenant_name + "/" + &cfg.info_model_id;
     //let topic = prefix + "/" + &cfg.third_things_id + &cfg.topic_suffix;
-    let mut context: HashMap<&str, &str> = cfg
-        .things_info[idx]
-        .iter()
-        .map(|(k, v)| (k.as_str(), v.as_str()))
-        .collect();
+    let mut context = cfg.things_info[idx].to_context();
     context.insert("client_id", client.as_str());
 
     let template = Template::from(cfg.topic_template.as_str());
@@ -182,8 +178,8 @@ async fn connect_broker(client: &str, cfg: &config::Config, idx: usize) -> Resul
     let client_id = if cfg.random_client_id {
         client
     } else {
-        let str =  cfg.things_info[idx].get("infoModelId").unwrap().to_owned().clone();
-        let third = cfg.things_info[idx].get("thirdThingsID").unwrap();
+        let str =  cfg.things_info[idx].infoModelId.to_owned().clone();
+        let third = &cfg.things_info[idx].thirdThingsId;
         res = str + third;
         &res
     };
@@ -202,7 +198,7 @@ async fn connect_broker(client: &str, cfg: &config::Config, idx: usize) -> Resul
 }
 
 fn get_payload(cfg: &config::Config, idx: usize) -> Vec<u8> {
-    let tenant_name = cfg.things_info[idx].get("tenantName").unwrap();
+    let tenant_name = &cfg.things_info[idx].tenantName;
     let payload = cfg.things_payload.get(tenant_name).unwrap();
 
     return if cfg.is_payload_base64 {
@@ -210,7 +206,6 @@ fn get_payload(cfg: &config::Config, idx: usize) -> Vec<u8> {
             Ok(payload) => payload,
             Err(_) => Vec::from(payload.as_bytes()),
         };
-        //get_payload(&cfg.payload, idx)
     } else {
         Vec::from(payload.as_bytes())
     };

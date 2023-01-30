@@ -64,6 +64,30 @@ impl DynamicToken {
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
+pub struct ThingsInfo {
+    pub tenantName :String,
+    pub infoModelId :String,
+    pub thirdThingsId :String,
+    pub password :String,
+    pub context :HashMap<String, String>
+}
+
+impl ThingsInfo {
+    pub fn to_context(self :&ThingsInfo) -> HashMap<&str, &str> {
+        let mut result :HashMap<&str, &str> =  self.context.iter()
+        .map(|(k, v)| (k.as_str(), v.as_str()))
+        .collect();
+
+        result.insert("tenantName", &self.tenantName);
+        result.insert("thirdThingsId", &self.thirdThingsId);
+        result.insert("infoModelId", &self.infoModelId);
+        result.insert("password", &self.password);
+        result
+    }
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct Config {
     #[serde(default = "default_broker_addr")]
     pub broker_addr: Vec<String>,
@@ -96,7 +120,7 @@ pub struct Config {
     pub duration: i32,
 
     #[serde(default = "default_things_info")]
-    pub things_info: Vec<HashMap<String, String>>,
+    pub things_info: Vec<ThingsInfo>,
 
     pub topic_template: String,
 
@@ -112,7 +136,7 @@ fn default_things_payload() -> HashMap<String, String> {
     HashMap::new()
 }
 
-fn default_things_info() -> Vec<HashMap<String, String>> {
+fn default_things_info() -> Vec<ThingsInfo> {
     Vec::new()
 }
 
@@ -256,8 +280,8 @@ spec:
             Spec::Publish(publish) => publish,
             _ => panic!("should be publish spec"),
         };
-        assert!(config.things_info[0]["tenantName"] == "google");
-        assert!(config.things_info[0]["password"] == "things_password");
+        assert!(config.things_info[0].tenantName == "google");
+        assert!(config.things_info[0].password == "things_password");
         assert!(config.topic_template == "/prefix/${tenantName}/${infoModelId}/${thirdThingsId}");
         assert!(config.dynamic_token.url == "http://localhost:8080/v1/");
         assert!(config.dynamic_token.payload == r#"{"username": "${tenantName}", "password": "${password}" }"#);
