@@ -6,14 +6,20 @@ metaData:
 spec:
   brokerAddr: ["127.0.0.1:1883"]
   clientId: client_id
-  connection: 100
+  connectionPerConnection: 1
+  dynamicToken: 
+    url: http://localhost:8080/v1/
+    payload: '{"username": "${tenantName}", "password": "${password}" }'
+    tokenExtractor: ".data.token"
   userName: admin
   password: bbbb
   topicTemplate: /prefix/${tenantName}/${infoModelId}/${thirdThingsId}
   thinkTime: 5000
   duration: 60
-  payload: "hello world"
-  data:
-    tenantName: "google"
+  thingsPayloads:
+   "google": "hello world"
+  thingsInfo:
+  - tenantName: "google"
     infoModelId: "demo_v1"
     thirdThingsId: thirdThingsID
+    password: "things_password"
