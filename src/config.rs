@@ -1,10 +1,10 @@
+use rand::{distributions::Alphanumeric, Rng};
 use serde::{Deserialize, Serialize};
 use serde_yaml;
 use std::{
-    collections::{HashMap},
+    collections::HashMap,
     fs,
     io::{Error, ErrorKind, Result},
-    
 };
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Default, Clone)]
@@ -47,17 +47,17 @@ pub struct Value {
 #[derive(Debug, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct DynamicToken {
-    pub url :String,
+    pub url: String,
     pub payload: String,
     pub token_extractor: String,
 }
 
 impl DynamicToken {
     pub fn new() -> DynamicToken {
-        DynamicToken { 
-            url: "".to_string(), 
-            payload: "".to_string(), 
-            token_extractor: "".to_string() 
+        DynamicToken {
+            url: "".to_string(),
+            payload: "".to_string(),
+            token_extractor: "".to_string(),
         }
     }
 }
@@ -65,22 +65,24 @@ impl DynamicToken {
 #[derive(Debug, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThingsInfo {
-    pub tenantName :String,
-    pub infoModelId :String,
-    pub thirdThingsId :String,
-    pub password :String,
-    pub context :HashMap<String, String>
+    pub tenant_name: String,
+    pub info_model_id: String,
+    pub third_things_id: String,
+    pub password: String,
+    pub context: HashMap<String, String>,
 }
 
 impl ThingsInfo {
-    pub fn to_context(self :&ThingsInfo) -> HashMap<&str, &str> {
-        let mut result :HashMap<&str, &str> =  self.context.iter()
-        .map(|(k, v)| (k.as_str(), v.as_str()))
-        .collect();
+    pub fn to_map(self: &ThingsInfo) -> HashMap<&str, &str> {
+        let mut result: HashMap<&str, &str> = self
+            .context
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+            .collect();
 
-        result.insert("tenantName", &self.tenantName);
-        result.insert("thirdThingsId", &self.thirdThingsId);
-        result.insert("infoModelId", &self.infoModelId);
+        result.insert("tenantName", &self.tenant_name);
+        result.insert("thirdThingsId", &self.third_things_id);
+        result.insert("infoModelId", &self.info_model_id);
         result.insert("password", &self.password);
         result
     }
@@ -126,6 +128,36 @@ pub struct Config {
 
     #[serde(default = "default_dynamic_token")]
     pub dynamic_token: DynamicToken,
+}
+
+impl Config {
+    pub fn to_context<'a>(
+        &'a self,
+        things_idx: usize,
+        client_id: &'a str,
+    ) -> HashMap<&str, &'a str> {
+        let mut result = self.things_info[things_idx].to_map();
+        result.insert("clientId", client_id);
+        result
+    }
+    pub fn get_client_id(&self, things_idx: usize) -> String {
+        let s: String = rand::thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(7)
+            .map(char::from)
+            .collect();
+        let client = self.client_id.clone() + &s;
+
+        if self.random_client_id {
+            return client;
+        };
+        let str = self.things_info[things_idx]
+            .info_model_id
+            .to_owned()
+            .clone();
+        let third = &self.things_info[things_idx].third_things_id;
+        str + third
+    }
 }
 
 fn default_dynamic_token() -> DynamicToken {
@@ -280,12 +312,15 @@ spec:
             Spec::Publish(publish) => publish,
             _ => panic!("should be publish spec"),
         };
-        assert!(config.things_info[0].tenantName == "google");
+        assert!(config.things_info[0].tenant_name == "google");
         assert!(config.things_info[0].password == "things_password");
         assert!(config.topic_template == "/prefix/${tenantName}/${infoModelId}/${thirdThingsId}");
         assert!(config.dynamic_token.url == "http://localhost:8080/v1/");
-        assert!(config.dynamic_token.payload == r#"{"username": "${tenantName}", "password": "${password}" }"#);
-        assert!(config.dynamic_token.token_extractor ==  ".data.token");
+        assert!(
+            config.dynamic_token.payload
+                == r#"{"username": "${tenantName}", "password": "${password}" }"#
+        );
+        assert!(config.dynamic_token.token_extractor == ".data.token");
     }
 
     #[test]

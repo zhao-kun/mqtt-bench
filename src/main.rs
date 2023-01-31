@@ -1,11 +1,15 @@
 use clap::Arg;
 use config::{Config, GroupVersionKind};
-use std::{sync::Arc, thread::sleep};
 use std::time::Duration;
+use std::{sync::Arc, thread::sleep};
 use stressing_registry::MetricRegistry;
 
-use rand::{distributions::Alphanumeric, Rng};
-use tokio::{select, task::JoinHandle, time::{self}, time::Instant};
+use tokio::{
+    select,
+    task::JoinHandle,
+    time::Instant,
+    time::{self},
+};
 
 use metrics_util::MetricKindMask;
 
@@ -71,13 +75,8 @@ fn start_publish_tasks(reg: Arc<MetricRegistry>, config: Config) -> Vec<JoinHand
     // Run tasks for the stressing test
     for i in 0..len {
         let cfg = arc_cfg.clone();
-        let s: String = rand::thread_rng()
-            .sample_iter(&Alphanumeric)
-            .take(7)
-            .map(char::from)
-            .collect();
-        let client = cfg.client_id.clone() + &s;
-        handles.push(tokio::spawn(stressing::run(reg.clone(), client, cfg, i)))
+
+        handles.push(tokio::spawn(stressing::run(reg.clone(), cfg, i)))
     }
 
     let registry = reg.clone();
