@@ -69,6 +69,7 @@ pub struct ThingsInfo {
     pub info_model_id: String,
     pub third_things_id: String,
     pub password: String,
+    #[serde(default = "default_hashmap")]
     pub context: HashMap<String, String>,
 }
 
@@ -115,7 +116,7 @@ pub struct Config {
     #[serde(default = "default_is_payload_base64")]
     pub is_payload_base64: bool,
 
-    #[serde(default = "default_things_payload")]
+    #[serde(default = "default_hashmap")]
     pub things_payload: HashMap<String, String>,
 
     #[serde(default = "default_duration")]
@@ -164,7 +165,7 @@ fn default_dynamic_token() -> DynamicToken {
     DynamicToken::new()
 }
 
-fn default_things_payload() -> HashMap<String, String> {
+fn default_hashmap() -> HashMap<String, String> {
     HashMap::new()
 }
 
@@ -314,6 +315,8 @@ spec:
         };
         assert!(config.things_info[0].tenant_name == "google");
         assert!(config.things_info[0].password == "things_password");
+        assert!(config.things_info[0].third_things_id == "thirdThingsID");
+        assert!(config.things_info[0].info_model_id == "demo_v1");
         assert!(config.topic_template == "/prefix/${tenantName}/${infoModelId}/${thirdThingsId}");
         assert!(config.dynamic_token.url == "http://localhost:8080/v1/");
         assert!(
