@@ -1,7 +1,6 @@
 use mqtt::{packet::*, Encodable};
 use rand::{self, Rng};
 use std::{
-    collections::HashMap,
     io::{Error, ErrorKind, Result},
     ops::Add,
     panic,
@@ -23,14 +22,14 @@ enum StressState {
 
 pub async fn run(
     registry: Arc<stressing_registry::MetricRegistry>,
-    client: String,
     cfg: Arc<config::Config>,
-    idx: usize,
+    things_idx: usize,
 ) {
     // Send ConnectPacket to the broker
     let mut state = StressState::Connecting;
     let mut stream;
-    if let Ok(str) = connect_broker(&client, &cfg, idx).await {
+    let client_id = cfg.get_client_id(things_idx);
+    if let Ok(str) = connect_broker(&client_id, &cfg).await {
         stream = str;
     } else {
         registry.exited_tasks_inc();
@@ -54,11 +53,11 @@ pub async fn run(
     let mut rx_ch = tx_ch.subscribe();
 
     // Calculating the payload
-    let payload = get_payload(&cfg, idx);
+    let payload = get_payload(&cfg, things_idx);
 
     let loops = cfg.duration * 1000 / cfg.think_time;
     let mut current = 0;
-    let topic = get_topic(&client, &cfg, idx);
+    let topic = get_topic(&cfg, things_idx, &client_id);
 
     // Main loop
     loop {
@@ -148,18 +147,14 @@ fn new_publish_packet(
     return Ok(packet);
 }
 
-fn get_topic(client: &String, cfg: &config::Config, idx: usize) -> String {
-    //let prefix = String::from("/d2s/") + &cfg.tenant_name + "/" + &cfg.info_model_id;
-    //let topic = prefix + "/" + &cfg.third_things_id + &cfg.topic_suffix;
-    let mut context = cfg.things_info[idx].to_context();
-    context.insert("client_id", client.as_str());
-
+fn get_topic(cfg: &config::Config, idx: usize, client_id: &str) -> String {
+    let context = cfg.to_context(idx, client_id);
     let template = Template::from(cfg.topic_template.as_str());
     let text = template.fill_in(&context);
     return text.to_string();
 }
 
-async fn connect_broker(client: &str, cfg: &config::Config, idx: usize) -> Result<TcpStream> {
+async fn connect_broker(client_id: &str, cfg: &config::Config) -> Result<TcpStream> {
     let mut broker_addr = cfg.broker_addr[0].clone();
     if cfg.broker_addr.len() > 1 {
         let num = rand::thread_rng().gen_range(0..cfg.broker_addr.len());
@@ -173,16 +168,6 @@ async fn connect_broker(client: &str, cfg: &config::Config, idx: usize) -> Resul
         }
     };
     println!("broker {} was connected send connect packet", broker_addr);
-
-    let res :String;
-    let client_id = if cfg.random_client_id {
-        client
-    } else {
-        let str =  cfg.things_info[idx].infoModelId.to_owned().clone();
-        let third = &cfg.things_info[idx].thirdThingsId;
-        res = str + third;
-        &res
-    };
 
     println!("client id is {}", client_id);
 
@@ -198,7 +183,7 @@ async fn connect_broker(client: &str, cfg: &config::Config, idx: usize) -> Resul
 }
 
 fn get_payload(cfg: &config::Config, idx: usize) -> Vec<u8> {
-    let tenant_name = &cfg.things_info[idx].tenantName;
+    let tenant_name = &cfg.things_info[idx].tenant_name;
     let payload = cfg.things_payload.get(tenant_name).unwrap();
 
     return if cfg.is_payload_base64 {
