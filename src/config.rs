@@ -7,6 +7,23 @@ use std::{
     io::{Error, ErrorKind, Result},
 };
 
+use crate::util::{http_rpc_call, render_template};
+
+const DEFAULT_AUTHENTICATION_PAYLOAD: &str = r#"
+{
+    "devices":[
+        {
+            "devid":"${thirdThingsId}",
+            "devtype":"${infoModelName}"
+        }
+    ],
+    "password":"${password}",
+    "username":"${tenantName}"
+}
+"#;
+
+const DEFAULT_TOKEN_EXTRACTOR: &str = "$.data.token";
+
 #[derive(Debug, PartialEq, Serialize, Deserialize, Default, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct MetaData {
@@ -56,8 +73,8 @@ impl DynamicToken {
     pub fn new() -> DynamicToken {
         DynamicToken {
             url: "".to_string(),
-            payload: "".to_string(),
-            token_extractor: "".to_string(),
+            payload: DEFAULT_AUTHENTICATION_PAYLOAD.to_string(),
+            token_extractor: DEFAULT_TOKEN_EXTRACTOR.to_string(),
         }
     }
 }
@@ -66,7 +83,7 @@ impl DynamicToken {
 #[serde(rename_all = "camelCase")]
 pub struct ThingsInfo {
     pub tenant_name: String,
-    pub info_model_id: String,
+    pub info_model_name: String,
     pub third_things_id: String,
     pub password: String,
     #[serde(default = "default_hashmap")]
@@ -83,7 +100,7 @@ impl ThingsInfo {
 
         result.insert("tenantName", &self.tenant_name);
         result.insert("thirdThingsId", &self.third_things_id);
-        result.insert("infoModelId", &self.info_model_id);
+        result.insert("infoModelName", &self.info_model_name);
         result.insert("password", &self.password);
         result
     }
@@ -153,11 +170,26 @@ impl Config {
             return client;
         };
         let str = self.things_info[things_idx]
-            .info_model_id
+            .info_model_name
             .to_owned()
             .clone();
         let third = &self.things_info[things_idx].third_things_id;
         str + third
+    }
+
+    pub async fn get_things_password(&self, things_idx: usize) -> String {
+        if self.dynamic_token.url == "" {
+            return self.password.clone();
+        }
+
+        let context = self.things_info[things_idx].to_map();
+        let request = render_template(&self.dynamic_token.payload, &context);
+        http_rpc_call(
+            &self.dynamic_token.url,
+            &request,
+            &self.dynamic_token.token_extractor,
+        )
+        .await
     }
 }
 
@@ -201,7 +233,7 @@ fn default_random_client_id() -> bool {
 }
 
 fn default_topic_suffix() -> String {
-    "/event/eventName".to_string()
+    "".to_string()
 }
 
 fn default_is_payload_base64() -> bool {
@@ -278,17 +310,17 @@ spec:
   dynamicToken: 
     url: http://localhost:8080/v1/
     payload: '{"username": "${tenantName}", "password": "${password}" }'
-    tokenExtractor: ".data.token"
+    tokenExtractor: "$.data.token"
   userName: admin
   password: bbbb
-  topicTemplate: /prefix/${tenantName}/${infoModelId}/${thirdThingsId}
+  topicTemplate: /prefix/${tenantName}/${infoModelName}/${thirdThingsId}
   thinkTime: 5000
   duration: 60
   thingsPayloads:
    "google": "hello world"
   thingsInfo:
   - tenantName: "google"
-    infoModelId: "demo_v1"
+    infoModelName: "demo_v1"
     thirdThingsId: thirdThingsID
     password: "things_password"
 "#;
@@ -316,14 +348,14 @@ spec:
         assert!(config.things_info[0].tenant_name == "google");
         assert!(config.things_info[0].password == "things_password");
         assert!(config.things_info[0].third_things_id == "thirdThingsID");
-        assert!(config.things_info[0].info_model_id == "demo_v1");
-        assert!(config.topic_template == "/prefix/${tenantName}/${infoModelId}/${thirdThingsId}");
+        assert!(config.things_info[0].info_model_name == "demo_v1");
+        assert!(config.topic_template == "/prefix/${tenantName}/${infoModelName}/${thirdThingsId}");
         assert!(config.dynamic_token.url == "http://localhost:8080/v1/");
         assert!(
             config.dynamic_token.payload
                 == r#"{"username": "${tenantName}", "password": "${password}" }"#
         );
-        assert!(config.dynamic_token.token_extractor == ".data.token");
+        assert!(config.dynamic_token.token_extractor == "$.data.token");
     }
 
     #[test]

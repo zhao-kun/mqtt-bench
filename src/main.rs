@@ -19,6 +19,7 @@ use sys_info;
 mod config;
 mod stressing;
 mod stressing_registry;
+mod util;
 
 #[tokio::main]
 async fn main() {

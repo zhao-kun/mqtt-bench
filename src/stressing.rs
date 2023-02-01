@@ -1,3 +1,4 @@
+use base64::{engine::general_purpose, Engine as _};
 use mqtt::{packet::*, Encodable};
 use rand::{self, Rng};
 use std::{
@@ -9,9 +10,9 @@ use std::{
 };
 use tokio::{io::AsyncWriteExt, net::TcpStream, select, sync::broadcast, time, time::Instant};
 
-use crate::config;
+use crate::config::{self};
 use crate::stressing_registry;
-use text_template::*;
+use crate::util::render_template;
 
 #[derive(PartialEq, Debug)]
 enum StressState {
@@ -29,7 +30,7 @@ pub async fn run(
     let mut state = StressState::Connecting;
     let mut stream;
     let client_id = cfg.get_client_id(things_idx);
-    if let Ok(str) = connect_broker(&client_id, &cfg).await {
+    if let Ok(str) = connect_broker(&cfg, things_idx, &client_id).await {
         stream = str;
     } else {
         registry.exited_tasks_inc();
@@ -149,12 +150,17 @@ fn new_publish_packet(
 
 fn get_topic(cfg: &config::Config, idx: usize, client_id: &str) -> String {
     let context = cfg.to_context(idx, client_id);
-    let template = Template::from(cfg.topic_template.as_str());
-    let text = template.fill_in(&context);
-    return text.to_string();
+    render_template(&cfg.topic_template, &context)
 }
 
-async fn connect_broker(client_id: &str, cfg: &config::Config) -> Result<TcpStream> {
+async fn connect_broker(
+    cfg: &config::Config,
+    things_idx: usize,
+    client_id: &str,
+) -> Result<TcpStream> {
+    println!("client id is {}", client_id);
+    let password = cfg.get_things_password(things_idx).await;
+
     let mut broker_addr = cfg.broker_addr[0].clone();
     if cfg.broker_addr.len() > 1 {
         let num = rand::thread_rng().gen_range(0..cfg.broker_addr.len());
@@ -169,12 +175,10 @@ async fn connect_broker(client_id: &str, cfg: &config::Config) -> Result<TcpStre
     };
     println!("broker {} was connected send connect packet", broker_addr);
 
-    println!("client id is {}", client_id);
-
     let mut conn = ConnectPacket::new(client_id);
     conn.set_clean_session(true);
     conn.set_user_name(Option::Some(cfg.user_name.clone()));
-    conn.set_password(Option::Some(cfg.password.clone()));
+    conn.set_password(Option::Some(password));
     let mut buf = Vec::new();
     conn.encode(&mut buf).unwrap();
     stream.write_all(&buf[..]).await?;
@@ -187,7 +191,7 @@ fn get_payload(cfg: &config::Config, idx: usize) -> Vec<u8> {
     let payload = cfg.things_payload.get(tenant_name).unwrap();
 
     return if cfg.is_payload_base64 {
-        return match base64::decode(payload) {
+        return match general_purpose::STANDARD_NO_PAD.decode(payload) {
             Ok(payload) => payload,
             Err(_) => Vec::from(payload.as_bytes()),
         };
