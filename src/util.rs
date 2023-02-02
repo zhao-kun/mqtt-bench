@@ -11,18 +11,17 @@ pub async fn http_rpc_call(http_url: &str, request: &str, extractor: &str) -> St
     let url = reqwest::Url::parse(http_url).unwrap();
     let response: reqwest::Response = reqwest::Client::new()
         .post(url)
-        .body(reqwest::Body::from(request.to_string().clone()))
+        .json(&serde_json::json!(request))
         .send()
         .await
         .unwrap();
     if response.status() != reqwest::StatusCode::OK {
-        println!(
+        panic!(
             "request url: {:?} with body: {:?}, error: {:?}",
             http_url,
             request,
             response.status()
         );
-        panic!("error response!!!!")
     }
     let result: String = response.text().await.unwrap();
     extract_token(&result, extractor)
