@@ -346,6 +346,7 @@ fn spec_from_str(contents: &str) -> Result<Stressing> {
 #[cfg(test)]
 mod tests {
     use crate::config::{spec_from_str, GroupVersionKind, Spec};
+    use crate::util::render_template;
 
     static YAML_STR: &str = r#"group: github.com/zhao-kun/mqtt-bench
 version: v1.0.1
@@ -449,5 +450,15 @@ spec:
             _ => panic!("should be publish spec"),
         };
         println!("{}", config.dynamic_token.payload);
+
+        let context = config.things_info[0].to_map();
+        let request = render_template(&config.dynamic_token.payload, &context);
+
+        println!("{}", request);
+
+        assert_eq!(
+            request,
+            r#"{"devices":[{"devid":"device_invert_3_172","devtype":"invert"}],"password":"12345678","username":"pressure3"}"#
+        )
     }
 }

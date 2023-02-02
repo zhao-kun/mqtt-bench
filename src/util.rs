@@ -11,7 +11,8 @@ pub async fn http_rpc_call(http_url: &str, request: &str, extractor: &str) -> St
     let url = reqwest::Url::parse(http_url).unwrap();
     let response: reqwest::Response = reqwest::Client::new()
         .post(url)
-        .json(&serde_json::json!(request))
+        .body(request.to_owned().to_string())
+        .header("Content-type", "application/json")
         .send()
         .await
         .unwrap();
