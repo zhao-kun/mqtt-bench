@@ -182,7 +182,7 @@ pub struct Config {
     pub is_payload_base64: bool,
 
     #[serde(default = "default_hashmap")]
-    pub things_payload: HashMap<String, String>,
+    pub things_payloads: HashMap<String, String>,
 
     #[serde(default = "default_duration")]
     pub duration: i32,
@@ -459,6 +459,12 @@ spec:
         assert_eq!(
             request,
             r#"{"devices":[{"devid":"device_invert_3_172","devtype":"invert"}],"password":"12345678","username":"pressure3"}"#
-        )
+        );
+
+        println!("{:?}", config.things_payloads);
+        assert!(config.things_payloads.len() > 0);
+        assert!(config
+            .things_payloads
+            .contains_key(&config.things_info[0].tenant_name))
     }
 }

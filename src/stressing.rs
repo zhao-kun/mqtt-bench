@@ -188,7 +188,7 @@ async fn connect_broker(
 
 fn get_payload(cfg: &config::Config, idx: usize) -> Vec<u8> {
     let tenant_name = &cfg.things_info[idx].tenant_name;
-    let payload = cfg.things_payload.get(tenant_name).unwrap();
+    let payload = cfg.things_payloads.get(tenant_name).unwrap();
 
     return if cfg.is_payload_base64 {
         return match general_purpose::STANDARD_NO_PAD.decode(payload) {
