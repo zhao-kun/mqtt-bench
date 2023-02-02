@@ -109,12 +109,49 @@ impl ThingsInfo {
             .map(|(k, v)| (k.as_str(), v.as_str()))
             .collect();
 
-        result.insert("tenantName", &self.tenant_name);
-        result.insert("thirdThingsId", &self.third_things_id);
-        result.insert("infoModelName", &self.info_model_name);
-        result.insert("password", &self.password);
+        if self.tenant_name.len() > 2
+            && self.tenant_name.char_indices().nth(1).unwrap().1 == '"'
+            && self.tenant_name.char_indices().nth_back(1).unwrap().1 == '"'
+        {
+            result.insert("tenantName", rem_first_and_last(&self.tenant_name));
+        } else {
+            result.insert("tenantName", &self.tenant_name);
+        }
+
+        if self.third_things_id.len() > 2
+            && self.third_things_id.char_indices().nth(1).unwrap().1 == '"'
+            && self.third_things_id.char_indices().nth_back(1).unwrap().1 == '"'
+        {
+            result.insert("thirdThingsId", rem_first_and_last(&self.third_things_id));
+        } else {
+            result.insert("thirdThingsId", &self.third_things_id);
+        }
+        if self.info_model_name.len() > 2
+            && self.info_model_name.char_indices().nth(1).unwrap().1 == '"'
+            && self.info_model_name.char_indices().nth_back(1).unwrap().1 == '"'
+        {
+            result.insert("infoModelName", rem_first_and_last(&self.info_model_name));
+        } else {
+            result.insert("infoModelName", &self.info_model_name);
+        }
+
+        if self.password.len() > 2
+            && self.password.char_indices().nth(1).unwrap().1 == '"'
+            && self.password.char_indices().nth_back(1).unwrap().1 == '"'
+        {
+            result.insert("password", rem_first_and_last(&self.password));
+        } else {
+            result.insert("password", &self.password);
+        }
+
         result
     }
+}
+fn rem_first_and_last(value: &str) -> &str {
+    let mut chars = value.chars();
+    chars.next();
+    chars.next_back();
+    chars.as_str()
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Default)]
@@ -358,8 +395,6 @@ spec:
     method: POST
     payload: '{"devices":[{"devid":"${thirdThingsId}","devtype":"${infoModelName}"}],"password":"${password}","username":"${tenantName}"}'
     tokenExtractor: "$.data.token"
-  userName:
-  password:
   topicTemplate: /d2s/${tenantName}/${infoModelName}/${thirdThingsId}/data
   thinkTime: 10000
   duration: 60
@@ -368,7 +403,7 @@ spec:
   thingsInfo:
   - tenantName: "pressure3"
     infoModelName: "invert"
-    thirdThingsId: "device_invert_3_172 "
+    thirdThingsId: "device_invert_3_172"
     password: "12345678"
 "#;
 
@@ -409,6 +444,10 @@ spec:
     #[test]
     fn spec_shoudl_be_unmarshal3() {
         let spec = spec_from_str(YAML_STR3).unwrap();
-        println!(" spec is {:?}", spec);
+        let config = match spec.spec {
+            Spec::Publish(publish) => publish,
+            _ => panic!("should be publish spec"),
+        };
+        println!("{}", config.dynamic_token.payload);
     }
 }
