@@ -67,6 +67,12 @@ pub struct DynamicToken {
     pub url: String,
     pub payload: String,
     pub token_extractor: String,
+    #[serde(default = "default_method_value")]
+    pub method: String,
+}
+
+fn default_method_value() -> String {
+    "POST".to_string()
 }
 
 impl DynamicToken {
@@ -75,6 +81,7 @@ impl DynamicToken {
             url: "".to_string(),
             payload: DEFAULT_AUTHENTICATION_PAYLOAD.to_string(),
             token_extractor: DEFAULT_TOKEN_EXTRACTOR.to_string(),
+            method: default_method_value(),
         }
     }
 }
@@ -83,9 +90,13 @@ impl DynamicToken {
 #[serde(rename_all = "camelCase")]
 pub struct ThingsInfo {
     pub tenant_name: String,
+
     pub info_model_name: String,
+
     pub third_things_id: String,
+
     pub password: String,
+
     #[serde(default = "default_hashmap")]
     pub context: HashMap<String, String>,
 }
@@ -174,7 +185,7 @@ impl Config {
             .to_owned()
             .clone();
         let third = &self.things_info[things_idx].third_things_id;
-        str + third
+        str + ":" + third
     }
 
     pub async fn get_things_password(&self, things_idx: usize) -> String {
@@ -310,6 +321,7 @@ spec:
   dynamicToken: 
     url: http://localhost:8080/v1/
     payload: '{"username": "${tenantName}", "password": "${password}" }'
+    method: POST
     tokenExtractor: "$.data.token"
   userName: admin
   password: bbbb
@@ -331,6 +343,33 @@ metaData:
   name: task-demo
 spec:
   value: 127.0.0.1:1883
+"#;
+
+    const YAML_STR3: &str = r#"group: github.com/zhao-kun/mqtt-bench
+version: v1.0.1
+kind: publish
+metaData:
+  name: task-demo
+spec:
+  brokerAddr: ["192.168.24.245:1883"]
+  clientId: prefix
+  dynamicToken:
+    url: http://192.168.24.91/v2/things/mqtt/tokens
+    method: POST
+    payload: '{"devices":[{"devid":"${thirdThingsId}","devtype":"${infoModelName}"}],"password":"${password}","username":"${tenantName}"}'
+    tokenExtractor: "$.data.token"
+  userName:
+  password:
+  topicTemplate: /d2s/${tenantName}/${infoModelName}/${thirdThingsId}/data
+  thinkTime: 10000
+  duration: 60
+  thingsPayloads:
+    "pressure3": AHRvdGFsX2VuZXJneQAyMC43MQB0b2RheV9lbmVyZ3kANTAuNzQAdGVtcGVyYXR1cmUAOTguNzIAZ2ZjaQA2OS45NgBidXNfdm9sdAA4MC42MQBwb3dlcgAyMC45MQBxX3Bvd2VyADQ1LjMyAHBmADg3LjQyAHB2MV92b2x0ADIwLjEyAHB2MV9jdXJyADMyLjEAcHYyX3ZvbHQAMjAuNzUAcHYyX2N1cnIANzcuMjUAcHYzX3ZvbHQAODkuNwBwdjNfY3VycgA4Ni45NgBsMV92b2x0ADQxLjUyAGwxX2N1cnIAOTIuMTcAbDFfZnJlcQAzMi4xNQBsMV9kY2kAOTAuMjMAbDFfcG93ZXIAOTMuOABsMV9wZgA4LjgAdGltZQAxNjc1MjQwMjY4MjAxAA==
+  thingsInfo:
+  - tenantName: "pressure3"
+    infoModelName: "invert"
+    thirdThingsId: "device_invert_3_172 "
+    password: "12345678"
 "#;
 
     #[test]
@@ -365,5 +404,11 @@ spec:
         assert!(spec.group() == "github.com/zhao-kun/mqtt-bench");
         assert!(spec.version() == "v1.0.1");
         assert!(spec.kind() == "test");
+    }
+
+    #[test]
+    fn spec_shoudl_be_unmarshal3() {
+        let spec = spec_from_str(YAML_STR3).unwrap();
+        println!(" spec is {:?}", spec);
     }
 }
