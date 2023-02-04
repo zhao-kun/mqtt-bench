@@ -109,44 +109,24 @@ impl ThingsInfo {
             .map(|(k, v)| (k.as_str(), v.as_str()))
             .collect();
 
-        if self.tenant_name.len() > 2
-            && self.tenant_name.char_indices().nth(1).unwrap().1 == '"'
-            && self.tenant_name.char_indices().nth_back(1).unwrap().1 == '"'
-        {
-            result.insert("tenantName", rem_first_and_last(&self.tenant_name));
-        } else {
-            result.insert("tenantName", &self.tenant_name);
-        }
-
-        if self.third_things_id.len() > 2
-            && self.third_things_id.char_indices().nth(1).unwrap().1 == '"'
-            && self.third_things_id.char_indices().nth_back(1).unwrap().1 == '"'
-        {
-            result.insert("thirdThingsId", rem_first_and_last(&self.third_things_id));
-        } else {
-            result.insert("thirdThingsId", &self.third_things_id);
-        }
-        if self.info_model_name.len() > 2
-            && self.info_model_name.char_indices().nth(1).unwrap().1 == '"'
-            && self.info_model_name.char_indices().nth_back(1).unwrap().1 == '"'
-        {
-            result.insert("infoModelName", rem_first_and_last(&self.info_model_name));
-        } else {
-            result.insert("infoModelName", &self.info_model_name);
-        }
-
-        if self.password.len() > 2
-            && self.password.char_indices().nth(1).unwrap().1 == '"'
-            && self.password.char_indices().nth_back(1).unwrap().1 == '"'
-        {
-            result.insert("password", rem_first_and_last(&self.password));
-        } else {
-            result.insert("password", &self.password);
-        }
-
+        insert("tenantName", &self.tenant_name, &mut result);
+        insert("infoModelName", &self.info_model_name, &mut result);
+        insert("thirdThingsId", &self.third_things_id, &mut result);
+        insert("password", &self.password, &mut result);
         result
     }
 }
+fn insert<'a: 'b, 'b>(k: &'a str, value: &'a str, m: &mut HashMap<&'b str, &'b str>) {
+    if value.len() >= 2
+        && value.char_indices().nth(0).unwrap().1 == '"'
+        && value.char_indices().nth_back(0).unwrap().1 == '"'
+    {
+        m.insert(k, rem_first_and_last(value));
+    } else {
+        m.insert(k, value);
+    }
+}
+
 fn rem_first_and_last(value: &str) -> &str {
     let mut chars = value.chars();
     chars.next();
