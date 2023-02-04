@@ -18,10 +18,11 @@ pub async fn http_rpc_call(http_url: &str, request: &str, extractor: &str) -> St
         .unwrap();
     if response.status() != reqwest::StatusCode::OK {
         panic!(
-            "request url: {:?} with body: {:?}, error: {:?}",
+            "request url: {:?} with body: {:?}, error: {:?}, message: {:?}",
             http_url,
             request,
-            response.status()
+            response.status(),
+            response.text().await.unwrap()
         );
     }
     let result: String = response.text().await.unwrap();

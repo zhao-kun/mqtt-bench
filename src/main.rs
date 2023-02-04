@@ -1,4 +1,3 @@
-use clap::Arg;
 use config::{Config, GroupVersionKind};
 use std::time::Duration;
 use std::{sync::Arc, thread::sleep};
@@ -23,15 +22,14 @@ mod util;
 
 #[tokio::main]
 async fn main() {
-    let matches = clap::App::new("MQTT stress test program")
-        .version("0.1.0")
+    let matches = clap::Command::new("MQTT stress test program")
+        .version("0.2.0")
         .author("Kun Zhao")
         .about("MQTT stress test program")
         .arg(
-            Arg::new("file")
-                .short('f')
-                .long("file")
-                .takes_value(true)
+            clap::arg!(--"file" <PATH>)
+                .value_parser(clap::value_parser!(std::path::PathBuf))
+                .short(Some('f'))
                 .help("Config file for stress test"),
         )
         .get_matches();
@@ -46,8 +44,12 @@ async fn main() {
         .install()
         .expect("failed to install Prometheus recorder");
 
-    let path = matches.value_of("file").unwrap_or("config.yml");
-    let spec = config::Stressing::from_file(path).expect("config file should be a valid yaml file");
+    let path = matches
+        .get_one::<std::path::PathBuf>("file")
+        .expect("config file path must be specified");
+    let file_path = path.as_os_str().to_str().expect("extract file path");
+    let spec =
+        config::Stressing::from_file(file_path).expect("config file should be a valid yaml file");
 
     let task_name = spec.meta().name;
     let original = stressing_registry::MetricRegistry::new(task_name);
