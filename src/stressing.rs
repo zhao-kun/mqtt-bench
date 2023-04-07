@@ -192,7 +192,7 @@ fn get_payload(cfg: &config::Config, idx: usize) -> Vec<u8> {
 
     return if cfg.is_payload_base64 {
         println!("convert payload to base64");
-        return match general_purpose::STANDARD_NO_PAD.decode(payload) {
+        return match general_purpose::STANDARD.decode(payload) {
             Ok(result) => {
                 let mut vec = Vec::new();
                 vec.extend_from_slice(&result);
@@ -201,10 +201,55 @@ fn get_payload(cfg: &config::Config, idx: usize) -> Vec<u8> {
             }
             Err(e) => {
                 println!("invalid base64 payload {}, error is {}", payload, e);
-                Vec::from(payload.as_bytes())
+                panic!("payload isn't base64");
             }
         };
     } else {
         Vec::from(payload.as_bytes())
     };
+}
+
+#[cfg(test)]
+mod tests {
+
+    static YAML_STR2: &str = r#"
+group: github.com/zhao-kun/mqtt-bench
+version: v1.0.1
+kind: publish
+metaData:
+  name: task-demo
+spec:
+  brokerAddr: ["192.168.24.245:1883"]
+  clientId: "prefix"
+  connectionPerConnection: 1
+  dynamicToken:
+    url: http://192.168.24.101:30880/v2/things/mqtt/tokens
+    method: POST
+    payload: '{"devices":[{"devid":"${thirdThingsId}","devtype":"${infoModelName}"}],"password":"${password}","username":"${infoModelName}"}'
+    tokenExtractor: ".data.token"
+  topicTemplate: /d2s/${tenantName}/${infoModelName}/${thirdThingsId}/data
+  thinkTime: 10000
+  duration: 60
+  thingsPayloads:
+    "pressure3": AHRvdGFsX2VuZXJneQAyMC43MQB0b2RheV9lbmVyZ3kANTAuNzQAdGVtcGVyYXR1cmUAOTguNzIAZ2ZjaQA2OS45NgBidXNfdm9sdAA4MC42MQBwb3dlcgAyMC45MQBxX3Bvd2VyADQ1LjMyAHBmADg3LjQyAHB2MV92b2x0ADIwLjEyAHB2MV9jdXJyADMyLjEAcHYyX3ZvbHQAMjAuNzUAcHYyX2N1cnIANzcuMjUAcHYzX3ZvbHQAODkuNwBwdjNfY3VycgA4Ni45NgBsMV92b2x0ADQxLjUyAGwxX2N1cnIAOTIuMTcAbDFfZnJlcQAzMi4xNQBsMV9kY2kAOTAuMjMAbDFfcG93ZXIAOTMuOABsMV9wZgA4LjgAdGltZQAxNjc1MjQwMjY4MjAxAA==
+  thingsInfo:
+  - tenantName: pressure3
+    infoModelName: invert
+    thirdThingsId: device_invert_3_172
+    password: "12345678"
+"#;
+    #[test]
+    fn test_get_payload() {
+        use crate::config::spec_from_str;
+        use crate::stressing::get_payload;
+
+        let stressing = spec_from_str(YAML_STR2).unwrap();
+        let config = match stressing.spec {
+            crate::config::Spec::Publish(config) => config,
+            _ => panic!("invalid config"),
+        };
+        let payload = get_payload(&config, 0);
+        println!("payload length is {}", payload.len());
+        assert!(payload.len() != 0);
+    }
 }

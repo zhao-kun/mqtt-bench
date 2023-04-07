@@ -22,7 +22,7 @@ const DEFAULT_AUTHENTICATION_PAYLOAD: &str = r#"
 }
 "#;
 
-const DEFAULT_TOKEN_EXTRACTOR: &str = "$.data.token";
+const DEFAULT_TOKEN_EXTRACTOR: &str = ".data.token";
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Default, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -313,7 +313,7 @@ impl Stressing {
     }
 }
 
-fn spec_from_str(contents: &str) -> Result<Stressing> {
+pub fn spec_from_str(contents: &str) -> Result<Stressing> {
     match serde_yaml::from_str(contents) {
         Ok(result) => Ok(result),
         Err(e) => {
