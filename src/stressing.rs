@@ -191,8 +191,14 @@ fn get_payload(cfg: &config::Config, idx: usize) -> Vec<u8> {
     let payload = cfg.things_payloads.get(tenant_name).unwrap();
 
     return if cfg.is_payload_base64 {
+        print!("convert payload to base64");
         return match general_purpose::STANDARD_NO_PAD.decode(payload) {
-            Ok(payload) => payload,
+            Ok(result) => {
+                let mut vec = Vec::new();
+                vec.extend_from_slice(&result);
+                print!("payload length is {}", vec.len());
+                vec
+            }
             Err(_) => Vec::from(payload.as_bytes()),
         };
     } else {
