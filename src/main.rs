@@ -32,6 +32,12 @@ async fn main() {
                 .short(Some('f'))
                 .help("Config file for stress test"),
         )
+        .arg(
+            clap::arg!(--"max-connections" <NUM>)
+                .value_parser(clap::value_parser!(usize))
+                .short(Some('c'))
+                .help("Max connections for the test"),
+        )
         .get_matches();
 
     // Start prometheus exporter
@@ -47,6 +53,11 @@ async fn main() {
     let path = matches
         .get_one::<std::path::PathBuf>("file")
         .expect("config file path must be specified");
+
+    let max_connnection = matches
+        .get_one::<usize>("max-connections")
+        .unwrap_or(&usize::MAX);
+
     let file_path = path.as_os_str().to_str().expect("extract file path");
     let spec =
         config::Stressing::from_file(file_path).expect("config file should be a valid yaml file");
@@ -57,7 +68,7 @@ async fn main() {
     let reg = Arc::new(original);
     let handles = match spec.spec {
         config::Spec::Test(_) => panic!("unsupported spec"),
-        config::Spec::Publish(config) => start_publish_tasks(reg.clone(), config),
+        config::Spec::Publish(config) => start_publish_tasks(reg.clone(), config, max_connnection),
     };
 
     futures::future::join_all(handles).await;
@@ -68,8 +79,17 @@ async fn main() {
     println!("All tasks run finished");
 }
 
-fn start_publish_tasks(reg: Arc<MetricRegistry>, config: Config) -> Vec<JoinHandle<()>> {
-    let len = config.things_info.len();
+fn start_publish_tasks(
+    reg: Arc<MetricRegistry>,
+    config: Config,
+    max_connection: &usize,
+) -> Vec<JoinHandle<()>> {
+    let len = if config.things_info.len() < *max_connection {
+        config.things_info.len()
+    } else {
+        *max_connection as usize
+    };
+
     let mut handles = vec![];
     let arc_cfg = Arc::new(config);
 
