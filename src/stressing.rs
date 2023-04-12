@@ -30,9 +30,7 @@ pub async fn run(
     let mut state = StressState::Connecting;
     let mut stream;
     let client_id = cfg.get_client_id(things_idx);
-
     shuffle_sleep(60000).await;
-
     if let Ok(str) = connect_broker(&cfg, things_idx, &client_id).await {
         stream = str;
     } else {

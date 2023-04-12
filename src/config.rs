@@ -69,6 +69,7 @@ pub struct DynamicToken {
     pub token_extractor: String,
     #[serde(default = "default_method_value")]
     pub method: String,
+    pub servers: Vec<String>,
 }
 
 fn default_method_value() -> String {
@@ -82,6 +83,7 @@ impl DynamicToken {
             payload: DEFAULT_AUTHENTICATION_PAYLOAD.to_string(),
             token_extractor: DEFAULT_TOKEN_EXTRACTOR.to_string(),
             method: default_method_value(),
+            servers: vec![],
         }
     }
 }
@@ -212,12 +214,10 @@ impl Config {
 
         let context = self.things_info[things_idx].to_map();
         let request = render_template(&self.dynamic_token.payload, &context);
-        http_rpc_call(
-            &self.dynamic_token.url,
-            &request,
-            &self.dynamic_token.token_extractor,
-        )
-        .await
+
+        let idx = rand::thread_rng().gen_range(1..self.dynamic_token.servers.len());
+        let url = self.dynamic_token.servers[idx].clone() + self.dynamic_token.url.as_str();
+        http_rpc_call(&url, &request, &self.dynamic_token.token_extractor).await
     }
 }
 
@@ -337,7 +337,11 @@ spec:
   brokerAddr: ["127.0.0.1:1883"]
   clientId: client_id
   dynamicToken: 
-    url: http://localhost:8080/v1/
+    servers:
+    - 192.168.1.1
+    - 192.168.1.2
+    - 192.168.1.3
+    url: /v2/things/mqtt/tokens
     payload: '{"username": "${tenantName}", "password": "${password}" }'
     method: POST
     tokenExtractor: "$.data.token"
@@ -372,7 +376,11 @@ spec:
   brokerAddr: ["192.168.24.245:1883"]
   clientId: prefix
   dynamicToken:
-    url: http://192.168.24.91/v2/things/mqtt/tokens
+    servers:
+    - 192.168.1.1
+    - 192.168.1.2
+    - 192.168.1.3
+    url: /v2/things/mqtt/tokens
     method: POST
     payload: '{"devices":[{"devid":"${thirdThingsId}","devtype":"${infoModelName}"}],"password":"${password}","username":"${tenantName}"}'
     tokenExtractor: "$.data.token"
@@ -405,12 +413,16 @@ spec:
         assert!(config.things_info[0].third_things_id == "thirdThingsID");
         assert!(config.things_info[0].info_model_name == "demo_v1");
         assert!(config.topic_template == "/prefix/${tenantName}/${infoModelName}/${thirdThingsId}");
-        assert!(config.dynamic_token.url == "http://localhost:8080/v1/");
+        assert!(config.dynamic_token.url == "/v2/things/mqtt/tokens");
         assert!(
             config.dynamic_token.payload
                 == r#"{"username": "${tenantName}", "password": "${password}" }"#
         );
+        assert!(config.dynamic_token.method == "POST");
         assert!(config.dynamic_token.token_extractor == "$.data.token");
+        assert!(config.dynamic_token.servers.get(0).unwrap() == "192.168.1.1");
+        assert!(config.dynamic_token.servers.get(1).unwrap() == "192.168.1.2");
+        assert!(config.dynamic_token.servers.get(2).unwrap() == "192.168.1.3");
     }
 
     #[test]
