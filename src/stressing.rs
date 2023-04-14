@@ -30,7 +30,7 @@ pub async fn run(
     let mut state = StressState::Connecting;
     let mut stream;
     let client_id = cfg.get_client_id(things_idx);
-    shuffle_sleep(60000).await;
+    shuffle_sleep(120000).await;
     if let Ok(str) = connect_broker(&cfg, things_idx, &client_id).await {
         stream = str;
     } else {
@@ -128,7 +128,7 @@ pub async fn run(
     return;
 }
 
-// shuffle_sleep sleep mills millseconds
+// shuffle_sleep sleep random mills millseconds
 async fn shuffle_sleep(max_mills: u64) {
     let mills = rand::thread_rng().gen_range(1..max_mills);
     time::sleep(Duration::from_millis(mills)).await;
