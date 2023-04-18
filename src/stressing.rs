@@ -31,12 +31,22 @@ pub async fn run(
     let mut stream;
     let client_id = cfg.get_client_id(things_idx);
     shuffle_sleep(120000).await;
+
+    if let Ok(str) = retry(connect_broker, &cfg, things_idx, &client_id, 10).await {
+        stream = str;
+    } else {
+        registry.exited_tasks_inc();
+        return;
+    }
+
+    /*
     if let Ok(str) = connect_broker(&cfg, things_idx, &client_id).await {
         stream = str;
     } else {
         registry.exited_tasks_inc();
         return;
     }
+    */
     let (mut rx, mut tx) = stream.split();
 
     // Increases running task counter
@@ -128,6 +138,63 @@ pub async fn run(
     return;
 }
 
+async fn retry<'a, F, T>(
+    f: F,
+    cfg: &'a config::Config,
+    things_idx: usize,
+    client_id: &'a str,
+    retry: usize,
+) -> std::result::Result<TcpStream, std::io::Error>
+where
+    F: Fn(&'a config::Config, usize, &'a str) -> T + 'a,
+    T: std::future::Future<Output = std::result::Result<TcpStream, std::io::Error>>,
+{
+    let mut count = 0;
+    loop {
+        let result = f(cfg, things_idx, client_id).await;
+        if result.is_ok() {
+            return Ok(result.unwrap());
+        }
+        count = count + 1;
+        if count > retry {
+            return Err(Error::new(ErrorKind::Other, "retry failed").into());
+        }
+        println!("retrying to connect broker, count is {}", count);
+        shuffle_sleep(1000).await;
+    }
+}
+
+async fn connect_broker<'a>(
+    cfg: &'a config::Config,
+    things_idx: usize,
+    client_id: &'a str,
+) -> std::result::Result<TcpStream, std::io::Error> {
+    println!("client id is {}", client_id);
+    let password = cfg.get_things_password(things_idx).await;
+
+    let mut broker_addr = cfg.broker_addr[0].clone();
+    if cfg.broker_addr.len() > 1 {
+        let num = rand::thread_rng().gen_range(0..cfg.broker_addr.len());
+        broker_addr = cfg.broker_addr[num].clone()
+    }
+    let mut stream = match TcpStream::connect(&broker_addr).await {
+        Ok(stream) => stream,
+        Err(e) => {
+            println!("connect {} error: {}", broker_addr, e);
+            return Err(e);
+        }
+    };
+    println!("broker {} was connected send connect packet", broker_addr);
+
+    let mut conn = ConnectPacket::new(client_id);
+    conn.set_clean_session(true);
+    conn.set_user_name(Option::Some(cfg.user_name.clone()));
+    conn.set_password(Option::Some(password));
+    let mut buf = Vec::new();
+    conn.encode(&mut buf).unwrap();
+    stream.write_all(&buf[..]).await?;
+    Ok(stream)
+}
 // shuffle_sleep sleep random mills millseconds
 async fn shuffle_sleep(max_mills: u64) {
     let mills = rand::thread_rng().gen_range(1..max_mills);
@@ -158,39 +225,6 @@ fn new_publish_packet(
 fn get_topic(cfg: &config::Config, idx: usize, client_id: &str) -> String {
     let context = cfg.to_context(idx, client_id);
     render_template(&cfg.topic_template, &context)
-}
-
-async fn connect_broker(
-    cfg: &config::Config,
-    things_idx: usize,
-    client_id: &str,
-) -> Result<TcpStream> {
-    println!("client id is {}", client_id);
-    let password = cfg.get_things_password(things_idx).await;
-
-    let mut broker_addr = cfg.broker_addr[0].clone();
-    if cfg.broker_addr.len() > 1 {
-        let num = rand::thread_rng().gen_range(0..cfg.broker_addr.len());
-        broker_addr = cfg.broker_addr[num].clone()
-    }
-    let mut stream = match TcpStream::connect(&broker_addr).await {
-        Ok(stream) => stream,
-        Err(e) => {
-            println!("connect {} error: {}", broker_addr, e);
-            return Err(e);
-        }
-    };
-    println!("broker {} was connected send connect packet", broker_addr);
-
-    let mut conn = ConnectPacket::new(client_id);
-    conn.set_clean_session(true);
-    conn.set_user_name(Option::Some(cfg.user_name.clone()));
-    conn.set_password(Option::Some(password));
-    let mut buf = Vec::new();
-    conn.encode(&mut buf).unwrap();
-    stream.write_all(&buf[..]).await?;
-
-    Ok(stream)
 }
 
 fn get_payload(cfg: &config::Config, idx: usize) -> Vec<u8> {
