@@ -17,13 +17,14 @@ pub async fn http_rpc_call(http_url: &str, request: &str, extractor: &str) -> St
         .await
         .unwrap();
     if response.status() != reqwest::StatusCode::OK {
-        panic!(
+        println!(
             "request url: {:?} with body: {:?}, error: {:?}, message: {:?}",
             http_url,
             request,
             response.status(),
             response.text().await.unwrap()
         );
+        return "".to_string();
     }
     let result: String = response.text().await.unwrap();
     extract_token(&result, extractor)

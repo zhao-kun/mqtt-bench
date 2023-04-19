@@ -39,14 +39,6 @@ pub async fn run(
         return;
     }
 
-    /*
-    if let Ok(str) = connect_broker(&cfg, things_idx, &client_id).await {
-        stream = str;
-    } else {
-        registry.exited_tasks_inc();
-        return;
-    }
-    */
     let (mut rx, mut tx) = stream.split();
 
     // Increases running task counter
@@ -152,15 +144,22 @@ where
     let mut count = 0;
     loop {
         let result = f(cfg, things_idx, client_id).await;
-        if result.is_ok() {
-            return Ok(result.unwrap());
+        match result {
+            Ok(stream) => {
+                return Ok(stream);
+            }
+            Err(e) => {
+                count = count + 1;
+                if count > retry {
+                    return Err(Error::new(ErrorKind::Other, "retry failed").into());
+                }
+                println!(
+                    "retrying due to error {}, connect broker, count is {}",
+                    e, count
+                );
+                shuffle_sleep(5000).await;
+            }
         }
-        count = count + 1;
-        if count > retry {
-            return Err(Error::new(ErrorKind::Other, "retry failed").into());
-        }
-        println!("retrying to connect broker, count is {}", count);
-        shuffle_sleep(1000).await;
     }
 }
 
@@ -171,6 +170,13 @@ async fn connect_broker<'a>(
 ) -> std::result::Result<TcpStream, std::io::Error> {
     println!("client id is {}", client_id);
     let password = cfg.get_things_password(things_idx).await;
+    if password.eq("") {
+        return Err(Error::new(
+            ErrorKind::Other,
+            "server can't handle request, password is empty",
+        )
+        .into());
+    }
 
     let mut broker_addr = cfg.broker_addr[0].clone();
     if cfg.broker_addr.len() > 1 {
