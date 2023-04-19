@@ -13,6 +13,7 @@ pub async fn http_rpc_call(http_url: &str, request: &str, extractor: &str) -> St
         .post(url)
         .body(request.to_owned().to_string())
         .header("Content-type", "application/json")
+        .header("Connection", "close") //disable keep-alive
         .send()
         .await
         .unwrap();
