@@ -10,7 +10,7 @@ use std::{
 };
 use tokio::{io::AsyncWriteExt, net::TcpStream, select, sync::broadcast, time, time::Instant};
 
-use crate::config::{self};
+use crate::config::{self, get_things_password};
 use crate::stressing_registry;
 use crate::util::render_template;
 
@@ -32,7 +32,7 @@ pub async fn run(
     let client_id = cfg.get_client_id(things_idx);
     shuffle_sleep(120000).await;
 
-    if let Ok(str) = retry(connect_broker, &cfg, things_idx, &client_id, 10).await {
+    if let Ok(str) = connect_broker(&cfg, things_idx, &client_id).await {
         stream = str;
     } else {
         registry.exited_tasks_inc();
@@ -130,6 +130,7 @@ pub async fn run(
     return;
 }
 
+/*
 async fn retry<'a, F, T>(
     f: F,
     cfg: &'a config::Config,
@@ -162,6 +163,31 @@ where
         }
     }
 }
+ */
+
+async fn retry<'a, F, T>(f: F, cfg: &'a config::Config, things_idx: usize, total: usize) -> String
+where
+    F: Fn(&'a config::Config, usize) -> T + 'a,
+    T: std::future::Future<Output = String>,
+{
+    let mut count = 0;
+    loop {
+        let result = f(cfg, things_idx).await;
+        if result.eq("") {
+            count = count + 1;
+            if count > total {
+                return "".to_string();
+            }
+            println!(
+                "retrying due to error, get things password, count is {}",
+                count
+            );
+            shuffle_sleep(5000).await;
+        } else {
+            return result;
+        }
+    }
+}
 
 async fn connect_broker<'a>(
     cfg: &'a config::Config,
@@ -169,7 +195,7 @@ async fn connect_broker<'a>(
     client_id: &'a str,
 ) -> std::result::Result<TcpStream, std::io::Error> {
     println!("client id is {}", client_id);
-    let password = cfg.get_things_password(things_idx).await;
+    let password = retry(get_things_password, cfg, things_idx, 10).await;
     if password.eq("") {
         return Err(Error::new(
             ErrorKind::Other,

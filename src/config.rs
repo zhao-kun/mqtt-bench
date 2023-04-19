@@ -221,6 +221,10 @@ impl Config {
     }
 }
 
+pub async fn get_things_password(config: &Config, things_idx: usize) -> String {
+    config.get_things_password(things_idx).await
+}
+
 fn default_dynamic_token() -> DynamicToken {
     DynamicToken::new()
 }
