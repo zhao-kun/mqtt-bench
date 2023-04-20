@@ -105,8 +105,9 @@ pub async fn run(
                             println!("connection was established");
                             registry.established_connection_inc();
                         } else {
-                            println!("recv invalid connack {:?} under the state {:?}, task ended!", _ack, state);
-                            break;
+                            println!("authorized failed, early exited, recv invalid connack {:?} under the state {:?}, task ended!", _ack, state);
+                            registry.exited_tasks_inc();
+                            return;
                         }
                     }
                     VariablePacket::PubackPacket(_ack) => {
