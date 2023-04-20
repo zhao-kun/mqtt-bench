@@ -71,7 +71,7 @@ pub async fn run(
         }
         select! {
             _ = heartbeat.tick() => {
-                if let Ok(packet) = new_publish_packet(&state, &topic,  payload.clone()){
+                if let Ok(packet) = new_publish_packet(&state, &topic,  &payload){
                     tx_ch.send(packet).unwrap();
                     current = current + 1;
                 }else {
@@ -237,7 +237,7 @@ async fn shuffle_sleep(max_mills: u64) {
 fn new_publish_packet(
     state: &StressState,
     topic: &String,
-    payload: Vec<u8>,
+    payload: &Vec<u8>,
 ) -> Result<PublishPacket> {
     if state != &StressState::Published {
         println!(
@@ -250,7 +250,7 @@ fn new_publish_packet(
     let packet = PublishPacket::new(
         mqtt::TopicName::new(topic).unwrap(),
         QoSWithPacketIdentifier::Level1(1),
-        payload,
+        payload.clone(),
     );
     return Ok(packet);
 }
