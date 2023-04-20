@@ -20,6 +20,13 @@ mod stressing;
 mod stressing_registry;
 mod util;
 
+#[cfg(not(target_env = "msvc"))]
+use tikv_jemallocator::Jemalloc;
+
+#[cfg(not(target_env = "msvc"))]
+#[global_allocator]
+static GLOBAL: Jemalloc = Jemalloc;
+
 #[tokio::main]
 async fn main() {
     let matches = clap::Command::new("MQTT stress test program")
