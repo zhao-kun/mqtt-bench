@@ -73,9 +73,12 @@ async fn main() {
     let original = stressing_registry::MetricRegistry::new(task_name);
     original.start_task();
     let reg = Arc::new(original);
+    let my_client = Arc::new(util::MyClient::new());
     let handles = match spec.spec {
         config::Spec::Test(_) => panic!("unsupported spec"),
-        config::Spec::Publish(config) => start_publish_tasks(reg.clone(), config, max_connnection),
+        config::Spec::Publish(config) => {
+            start_publish_tasks(my_client, reg.clone(), config, max_connnection)
+        }
     };
 
     futures::future::join_all(handles).await;
@@ -87,6 +90,7 @@ async fn main() {
 }
 
 fn start_publish_tasks(
+    http_client: Arc<util::MyClient>,
     reg: Arc<MetricRegistry>,
     config: Config,
     max_connection: &usize,
@@ -106,7 +110,12 @@ fn start_publish_tasks(
     for i in 0..len {
         let cfg = arc_cfg.clone();
 
-        handles.push(tokio::spawn(stressing::run(reg.clone(), cfg, i)))
+        handles.push(tokio::spawn(stressing::run(
+            http_client.clone(),
+            reg.clone(),
+            cfg,
+            i,
+        )))
     }
 
     let registry = reg.clone();

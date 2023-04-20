@@ -1,19 +1,36 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 use text_template::*;
+#[derive(Clone)]
+pub struct MyClient {
+    pub client: reqwest::Client,
+}
 
+impl MyClient {
+    pub fn new() -> Self {
+        let client = reqwest::Client::new();
+        MyClient { client }
+    }
+}
 pub fn render_template(template: &str, context: &HashMap<&str, &str>) -> String {
     let template = Template::from(template);
     let text = template.fill_in(context);
     return text.to_string();
 }
 
-pub async fn http_rpc_call(http_url: &str, request: &str, extractor: &str) -> String {
+pub async fn http_rpc_call(
+    http_client: &Arc<MyClient>,
+    http_url: &str,
+    request: &str,
+    extractor: &str,
+) -> String {
     let url = reqwest::Url::parse(http_url).unwrap();
-    let response: reqwest::Response = reqwest::Client::new()
+
+    let response: reqwest::Response = http_client
+        .client
         .post(url)
         .body(request.to_owned().to_string())
         .header("Content-type", "application/json")
-        .header("Connection", "close") //disable keep-alive
         .send()
         .await
         .unwrap();
@@ -46,7 +63,11 @@ fn extract_token(content: &str, token_extractor: &str) -> String {
 
 #[cfg(test)]
 mod util_tests {
+
+    use std::sync::Arc;
+
     use crate::util::extract_token;
+    use crate::util::MyClient;
     use httpmock::prelude::*;
 
     use super::http_rpc_call;
@@ -91,6 +112,7 @@ mod util_tests {
     fn test_http_rpc() {
         // Start a lightweight mock server.
         let server = MockServer::start();
+        let http_client = Arc::new(MyClient::new());
 
         // Create a mock on the server.
         let mock = server.mock(|when, then| {
@@ -107,7 +129,9 @@ mod util_tests {
             .enable_all()
             .build()
             .unwrap()
-            .block_on(async { http_rpc_call(&server.url(PATH), REQUEST, TOKEN_EXTRACTOR).await });
+            .block_on(async {
+                http_rpc_call(&http_client, &server.url(PATH), REQUEST, TOKEN_EXTRACTOR).await
+            });
 
         mock.assert();
 

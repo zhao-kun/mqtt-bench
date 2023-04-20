@@ -12,7 +12,7 @@ use tokio::{io::AsyncWriteExt, net::TcpStream, select, sync::broadcast, time, ti
 
 use crate::config::{self, get_things_password};
 use crate::stressing_registry;
-use crate::util::render_template;
+use crate::util::{render_template, MyClient};
 
 #[derive(PartialEq, Debug)]
 enum StressState {
@@ -22,6 +22,7 @@ enum StressState {
 }
 
 pub async fn run(
+    http_client: Arc<MyClient>,
     registry: Arc<stressing_registry::MetricRegistry>,
     cfg: Arc<config::Config>,
     things_idx: usize,
@@ -32,7 +33,7 @@ pub async fn run(
     let client_id = cfg.get_client_id(things_idx);
     shuffle_sleep(120000).await;
 
-    if let Ok(str) = connect_broker(&cfg, things_idx, &client_id).await {
+    if let Ok(str) = connect_broker(&cfg, things_idx, &client_id, http_client).await {
         stream = str;
     } else {
         registry.exited_tasks_inc();
@@ -166,14 +167,20 @@ where
 }
  */
 
-async fn retry<'a, F, T>(f: F, cfg: &'a config::Config, things_idx: usize, total: usize) -> String
+async fn retry<'a, F, T>(
+    f: F,
+    http_client: &'a Arc<MyClient>,
+    cfg: &'a config::Config,
+    things_idx: usize,
+    total: usize,
+) -> String
 where
-    F: Fn(&'a config::Config, usize) -> T + 'a,
+    F: Fn(&'a Arc<MyClient>, &'a config::Config, usize) -> T + 'a,
     T: std::future::Future<Output = String>,
 {
     let mut count = 0;
     loop {
-        let result = f(cfg, things_idx).await;
+        let result = f(http_client, cfg, things_idx).await;
         if result.eq("") {
             count = count + 1;
             if count > total {
@@ -194,9 +201,10 @@ async fn connect_broker<'a>(
     cfg: &'a config::Config,
     things_idx: usize,
     client_id: &'a str,
+    http_client: Arc<MyClient>,
 ) -> std::result::Result<TcpStream, std::io::Error> {
     println!("client id is {}", client_id);
-    let password = retry(get_things_password, cfg, things_idx, 10).await;
+    let password = retry(get_things_password, &http_client, cfg, things_idx, 10).await;
     if password.eq("") {
         return Err(Error::new(
             ErrorKind::Other,

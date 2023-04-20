@@ -5,9 +5,10 @@ use std::{
     collections::HashMap,
     fs,
     io::{Error, ErrorKind, Result},
+    sync::Arc,
 };
 
-use crate::util::{http_rpc_call, render_template};
+use crate::util::{http_rpc_call, render_template, MyClient};
 
 const DEFAULT_AUTHENTICATION_PAYLOAD: &str = r#"
 {
@@ -206,23 +207,29 @@ impl Config {
         let third = &self.things_info[things_idx].third_things_id;
         str + ":" + third
     }
-
-    pub async fn get_things_password(&self, things_idx: usize) -> String {
-        if self.dynamic_token.url == "" {
-            return self.password.clone();
-        }
-
-        let context = self.things_info[things_idx].to_map();
-        let request = render_template(&self.dynamic_token.payload, &context);
-
-        let idx = rand::thread_rng().gen_range(1..self.dynamic_token.servers.len());
-        let url = self.dynamic_token.servers[idx].clone() + self.dynamic_token.url.as_str();
-        http_rpc_call(&url, &request, &self.dynamic_token.token_extractor).await
-    }
 }
 
-pub async fn get_things_password(config: &Config, things_idx: usize) -> String {
-    config.get_things_password(things_idx).await
+pub async fn get_things_password(
+    http_client: &Arc<MyClient>,
+    config: &Config,
+    things_idx: usize,
+) -> String {
+    if config.dynamic_token.url == "" {
+        return config.password.clone();
+    }
+
+    let context = config.things_info[things_idx].to_map();
+    let request = render_template(&config.dynamic_token.payload, &context);
+
+    let idx = rand::thread_rng().gen_range(1..config.dynamic_token.servers.len());
+    let url = config.dynamic_token.servers[idx].clone() + config.dynamic_token.url.as_str();
+    http_rpc_call(
+        http_client,
+        &url,
+        &request,
+        &config.dynamic_token.token_extractor,
+    )
+    .await
 }
 
 fn default_dynamic_token() -> DynamicToken {
