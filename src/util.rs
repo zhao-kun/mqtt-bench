@@ -75,7 +75,7 @@ fn extract_token(content: &str, token_extractor: &str) -> String {
 mod util_tests {
 
     use std::sync::Arc;
-    use wiremock::matchers::method;
+    use wiremock::matchers::{method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
     use crate::util::extract_token;
@@ -126,6 +126,7 @@ mod util_tests {
         let http_client = Arc::new(MyClient::new());
 
         Mock::given(method("POST"))
+            .and(path(PATH))
             .respond_with(ResponseTemplate::new(200).set_body_raw(RESPONSE, "application/json"))
             .mount(&server)
             .await;
