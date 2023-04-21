@@ -58,6 +58,8 @@ pub async fn run(
 
     let loops = cfg.duration * 1000 / cfg.think_time;
     let mut sent = 0;
+    let mut sending = 0;
+    let mut sendack = 0;
     let topic = get_topic(&cfg, things_idx, &client_id);
 
     // Main loop
@@ -70,6 +72,7 @@ pub async fn run(
             _ = heartbeat.tick() => {
                 if let Ok(packet) = new_publish_packet(&state, &topic,  &payload){
                     tx_ch.send(packet).unwrap();
+                    sending += 1;
                 }else {
                     registry.timeout_pubacks_inc();
                     println!("heartbeat arrive but puback not received");
@@ -110,6 +113,7 @@ pub async fn run(
                     VariablePacket::PubackPacket(_ack) => {
                         if state == StressState::Publishing {
                             state = StressState::Published;
+                            sendack +=1;
                             registry.publish_packets_inc();
                         } else {
                             println!("recv invalid Puback, puback should be return when state is publishing");
@@ -123,7 +127,10 @@ pub async fn run(
         }
     }
 
-    print!("task finished, total sent {}", sent);
+    println!(
+        "client_id: {} task finished, total sent {}, sending {}, sendack {}",
+        client_id, sent, sending, sendack
+    );
     // Updating counter of the exiting tasks
     registry.exited_tasks_inc();
     return;
