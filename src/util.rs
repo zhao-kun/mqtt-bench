@@ -26,26 +26,36 @@ pub async fn http_rpc_call(
 ) -> String {
     let url = reqwest::Url::parse(http_url).unwrap();
 
-    let response: reqwest::Response = http_client
+    let res = http_client
         .client
         .post(url)
         .body(request.to_owned().to_string())
         .header("Content-type", "application/json")
         .send()
-        .await
-        .unwrap();
-    if response.status() != reqwest::StatusCode::OK {
-        println!(
-            "request url: {:?} with body: {:?}, error: {:?}, message: {:?}",
-            http_url,
-            request,
-            response.status(),
-            response.text().await.unwrap()
-        );
-        return "".to_string();
+        .await;
+    match res {
+        Ok(response) => {
+            if response.status() != reqwest::StatusCode::OK {
+                println!(
+                    "request url: {:?} with body: {:?}, error: {:?}, message: {:?}",
+                    http_url,
+                    request,
+                    response.status(),
+                    response.text().await.unwrap()
+                );
+                return "".to_string();
+            }
+            let result: String = response.text().await.unwrap();
+            extract_token(&result, extractor)
+        }
+        Err(err) => {
+            println!(
+                "request url: {:?} with body: {:?}, error: {:?}",
+                http_url, request, err
+            );
+            return "".to_string();
+        }
     }
-    let result: String = response.text().await.unwrap();
-    extract_token(&result, extractor)
 }
 
 fn extract_token(content: &str, token_extractor: &str) -> String {
