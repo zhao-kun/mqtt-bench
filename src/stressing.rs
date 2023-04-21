@@ -3,7 +3,6 @@ use mqtt::{packet::*, Encodable};
 use rand::{self, Rng};
 use std::{
     io::{Error, ErrorKind, Result},
-    ops::Add,
     panic,
     sync::Arc,
     time::Duration,
