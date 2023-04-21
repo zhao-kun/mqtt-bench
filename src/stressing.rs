@@ -213,8 +213,7 @@ async fn connect_broker<'a>(
         return Err(Error::new(
             ErrorKind::Other,
             "server can't handle request, password is empty",
-        )
-        .into());
+        ));
     }
 
     let mut broker_addr = cfg.broker_addr[0].clone();
@@ -274,56 +273,68 @@ fn get_topic(cfg: &config::Config, idx: usize, client_id: &str) -> String {
 
 fn get_payload(cfg: &config::Config, idx: usize) -> Vec<u8> {
     let tenant_name = &cfg.things_info[idx].tenant_name;
-    let payload = cfg.things_payloads.get(tenant_name).unwrap();
-
-    return if cfg.is_payload_base64 {
-        println!("convert payload to base64");
-        return match general_purpose::STANDARD.decode(payload) {
-            Ok(result) => {
-                let mut vec = Vec::new();
-                vec.extend_from_slice(&result);
-                println!("payload length is {}", vec.len());
-                vec
-            }
-            Err(e) => {
-                println!("invalid base64 payload {}, error is {}", payload, e);
-                panic!("payload isn't base64");
-            }
-        };
-    } else {
-        Vec::from(payload.as_bytes())
-    };
+    let res = cfg.things_payloads.get(tenant_name);
+    match res {
+        Some(payload) => {
+            return if cfg.is_payload_base64 {
+                println!("convert payload to base64");
+                return match general_purpose::STANDARD.decode(payload) {
+                    Ok(result) => {
+                        let mut vec = Vec::new();
+                        vec.extend_from_slice(&result);
+                        println!("payload length is {}", vec.len());
+                        vec
+                    }
+                    Err(e) => {
+                        println!("invalid base64 payload {}, error is {}", payload, e);
+                        panic!("payload isn't base64");
+                    }
+                };
+            } else {
+                Vec::from(payload.as_bytes())
+            };
+        }
+        None => {
+            panic!(
+                "things_idx{} client_id{} hasn't payload",
+                idx, cfg.things_info[idx].third_things_id
+            );
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
 
-    static YAML_STR2: &str = r#"
-group: github.com/zhao-kun/mqtt-bench
+    const YAML_STR2: &str = r#"group: github.com/zhao-kun/mqtt-bench
 version: v1.0.1
 kind: publish
 metaData:
   name: task-demo
 spec:
   brokerAddr: ["192.168.24.245:1883"]
-  clientId: "prefix"
-  connectionPerConnection: 1
+  clientId: prefix
   dynamicToken:
-    url: http://192.168.24.101:30880/v2/things/mqtt/tokens
+    servers:
+    - 192.168.1.1
+    - 192.168.1.2
+    - 192.168.1.3
+    url: /v2/things/mqtt/tokens
     method: POST
-    payload: '{"devices":[{"devid":"${thirdThingsId}","devtype":"${infoModelName}"}],"password":"${password}","username":"${infoModelName}"}'
-    tokenExtractor: ".data.token"
+    payload: '{"devices":[{"devid":"${thirdThingsId}","devtype":"${infoModelName}"}],"password":"${password}","username":"${tenantName}"}'
+    tokenExtractor: "$.data.token"
   topicTemplate: /d2s/${tenantName}/${infoModelName}/${thirdThingsId}/data
   thinkTime: 10000
   duration: 60
   thingsPayloads:
     "pressure3": AHRvdGFsX2VuZXJneQAyMC43MQB0b2RheV9lbmVyZ3kANTAuNzQAdGVtcGVyYXR1cmUAOTguNzIAZ2ZjaQA2OS45NgBidXNfdm9sdAA4MC42MQBwb3dlcgAyMC45MQBxX3Bvd2VyADQ1LjMyAHBmADg3LjQyAHB2MV92b2x0ADIwLjEyAHB2MV9jdXJyADMyLjEAcHYyX3ZvbHQAMjAuNzUAcHYyX2N1cnIANzcuMjUAcHYzX3ZvbHQAODkuNwBwdjNfY3VycgA4Ni45NgBsMV92b2x0ADQxLjUyAGwxX2N1cnIAOTIuMTcAbDFfZnJlcQAzMi4xNQBsMV9kY2kAOTAuMjMAbDFfcG93ZXIAOTMuOABsMV9wZgA4LjgAdGltZQAxNjc1MjQwMjY4MjAxAA==
   thingsInfo:
-  - tenantName: pressure3
-    infoModelName: invert
-    thirdThingsId: device_invert_3_172
+  - tenantName: "pressure3"
+    infoModelName: "invert"
+    thirdThingsId: "device_invert_3_172"
     password: "12345678"
 "#;
+
     #[test]
     fn test_get_payload() {
         use crate::config::spec_from_str;

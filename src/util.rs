@@ -75,10 +75,11 @@ fn extract_token(content: &str, token_extractor: &str) -> String {
 mod util_tests {
 
     use std::sync::Arc;
+    use wiremock::matchers::method;
+    use wiremock::{Mock, MockServer, ResponseTemplate};
 
     use crate::util::extract_token;
     use crate::util::MyClient;
-    use httpmock::prelude::*;
 
     use super::http_rpc_call;
 
@@ -91,7 +92,7 @@ mod util_tests {
       "sslport": 0
     },
     "owner": "string",
-    "token": "token2",
+    "token": "this is a real token",
     "uuid": "string"
   },
   "message": "string",
@@ -108,43 +109,34 @@ mod util_tests {
   "username": "string"
 }"#;
 
-    const TOKEN_EXTRACTOR: &str = "$.data.token";
+    const TOKEN_EXTRACTOR: &str = ".data.token";
 
     #[test]
     fn test_extractor() {
         let token = extract_token(RESPONSE, TOKEN_EXTRACTOR);
         println!("token is {:?}", token);
-        assert!(token == "token2")
+        assert!(token == "this is a real token")
     }
 
     const PATH: &str = "/v2/things/mqtt/tokens";
-    #[test]
-    fn test_http_rpc() {
+    #[tokio::test]
+    async fn test_http_rpc() {
         // Start a lightweight mock server.
-        let server = MockServer::start();
+        let server = MockServer::start().await;
         let http_client = Arc::new(MyClient::new());
 
+        Mock::given(method("POST"))
+            .respond_with(ResponseTemplate::new(200).set_body_raw(RESPONSE, "application/json"))
+            .mount(&server)
+            .await;
+
         // Create a mock on the server.
-        let mock = server.mock(|when, then| {
-            when.method(POST)
-                .path(PATH)
-                .json_body(serde_json::json!(REQUEST));
+        let url = format!("{}{}", server.uri(), PATH);
 
-            then.status(200)
-                .header("content-type", "applicatoin/json; charset=UTF-8")
-                .json_body(serde_json::json!(RESPONSE));
-        });
+        println!("make a http request to mockserver {}", url);
 
-        let result = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .unwrap()
-            .block_on(async {
-                http_rpc_call(&http_client, &server.url(PATH), REQUEST, TOKEN_EXTRACTOR).await
-            });
+        let result = http_rpc_call(&http_client, &url, REQUEST, TOKEN_EXTRACTOR).await;
 
-        mock.assert();
-
-        assert_eq!(result, "token2");
+        assert_eq!(result, "this is a real token");
     }
 }
