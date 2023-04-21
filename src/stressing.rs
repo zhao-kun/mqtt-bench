@@ -47,11 +47,8 @@ pub async fn run(
     registry.ongoing_connection_inc();
 
     // Generating random delays for hashing publish packet action
-    let num = rand::thread_rng().gen_range(1..30000);
-    let mut heartbeat = time::interval_at(
-        Instant::now().add(Duration::from_millis(num)),
-        Duration::from_millis(cfg.think_time as u64),
-    );
+    let mut heartbeat =
+        time::interval_at(Instant::now(), Duration::from_millis(cfg.think_time as u64));
 
     // Using a dedicated channel for sending publish packet
     let (tx_ch, _rx) = broadcast::channel(10);
@@ -61,20 +58,19 @@ pub async fn run(
     let payload = get_payload(&cfg, things_idx);
 
     let loops = cfg.duration * 1000 / cfg.think_time;
-    let mut current = 0;
+    let mut sent = 0;
     let topic = get_topic(&cfg, things_idx, &client_id);
 
     // Main loop
     loop {
-        if current > loops {
-            println!("loop ended, task finished");
-            return;
+        if sent > loops {
+            print!("client_id {} finished", client_id);
+            break;
         }
         select! {
             _ = heartbeat.tick() => {
                 if let Ok(packet) = new_publish_packet(&state, &topic,  &payload){
                     tx_ch.send(packet).unwrap();
-                    current = current + 1;
                 }else {
                     registry.timeout_pubacks_inc();
                     println!("heartbeat arrive but puback not received");
@@ -86,6 +82,7 @@ pub async fn run(
                 packet.encode(&mut buf).unwrap();
                 tx.write_all(&buf[..]).await.unwrap();
                 state = StressState::Publishing;
+                sent = sent + 1;
             },
             result = VariablePacket::parse(&mut rx) => {
                 let packet = match result {
@@ -106,7 +103,7 @@ pub async fn run(
                             println!("connection was established");
                             registry.established_connection_inc();
                         } else {
-                            println!("authorized failed, early exited, recv invalid connack {:?} under the state {:?}, task ended!", _ack, state);
+                            println!("client_ID: {} failed to authorize, early exited, recv invalid connack {:?} under the state {:?}, task ended!",client_id, _ack, state);
                             registry.exited_tasks_inc();
                             return;
                         }
@@ -127,6 +124,7 @@ pub async fn run(
         }
     }
 
+    print!("task finished, total sent {}", sent);
     // Updating counter of the exiting tasks
     registry.exited_tasks_inc();
     return;
