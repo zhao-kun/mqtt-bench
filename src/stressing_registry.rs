@@ -1,6 +1,7 @@
 use atomic_counter::{AtomicCounter, RelaxedCounter};
 use metrics::gauge;
 use std::fmt;
+use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
 use std::sync::Mutex;
 
 #[derive(Debug, Clone)]
@@ -22,8 +23,8 @@ pub struct MetricRegistry {
     invalid_pubacks: RelaxedCounter,
     timeout_pubacks: RelaxedCounter,
     publish_packets: RelaxedCounter,
-    established_connection: RelaxedCounter,
-    ongoing_connection: RelaxedCounter,
+    established_connection: AtomicU32,
+    ongoing_connection: AtomicU32,
     task_name: String,
     task_status: Mutex<TaskStatus>,
 }
@@ -36,8 +37,8 @@ impl MetricRegistry {
             invalid_pubacks: RelaxedCounter::new(0),
             timeout_pubacks: RelaxedCounter::new(0),
             publish_packets: RelaxedCounter::new(0),
-            established_connection: RelaxedCounter::new(0),
-            ongoing_connection: RelaxedCounter::new(0),
+            established_connection: AtomicU32::new(0),
+            ongoing_connection: AtomicU32::new(0),
             task_name: task_name,
             task_status: Mutex::new(TaskStatus::Stop),
         };
@@ -53,7 +54,9 @@ impl MetricRegistry {
         self.task_status
             .lock()
             .unwrap()
-            .clone_from(&TaskStatus::Stop)
+            .clone_from(&TaskStatus::Stop);
+        self.established_connection_reset();
+        self.ongoing_connection_reset();
     }
 
     pub fn running_tasks_inc(self: &MetricRegistry) {
@@ -73,11 +76,27 @@ impl MetricRegistry {
     }
 
     pub fn ongoing_connection_inc(self: &MetricRegistry) {
-        self.ongoing_connection.inc();
+        self.ongoing_connection.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub fn ongoing_connection_decr(self: &MetricRegistry) {
+        self.ongoing_connection.fetch_sub(1, Ordering::Relaxed);
+    }
+
+    pub fn ongoing_connection_reset(self: &MetricRegistry) {
+        self.ongoing_connection.fetch_min(0, Ordering::Relaxed);
     }
 
     pub fn established_connection_inc(self: &MetricRegistry) {
-        self.established_connection.inc();
+        self.established_connection.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub fn established_connection_decr(self: &MetricRegistry) {
+        self.established_connection.fetch_sub(1, Ordering::Relaxed);
+    }
+
+    pub fn established_connection_reset(self: &MetricRegistry) {
+        self.established_connection.fetch_min(0, Ordering::Relaxed);
     }
 
     pub fn publish_packets_inc(self: &MetricRegistry) {
@@ -119,12 +138,12 @@ impl MetricRegistry {
         );
         gauge!(
             "established_connection",
-            self.established_connection.get() as f64,
+            self.established_connection.load(Ordering::Relaxed) as f64,
             &new_labels
         );
         gauge!(
             "ongoing_connection",
-            self.ongoing_connection.get() as f64,
+            self.ongoing_connection.load(Ordering::Relaxed) as f64,
             &new_labels
         )
     }

@@ -64,8 +64,8 @@ pub async fn run(
 
     // Main loop
     loop {
-        if sent > loops {
-            print!("client_id {} finished", client_id);
+        if sendack >= loops {
+            println!("client_id {} normaly finished,", client_id);
             break;
         }
         select! {
@@ -104,8 +104,11 @@ pub async fn run(
                             state = StressState::Published;
                             println!("connection was established");
                             registry.established_connection_inc();
+                            registry.ongoing_connection_decr();
                         } else {
                             println!("client_ID: {} failed to authorize, early exited, recv invalid connack {:?} under the state {:?}, task ended!",client_id, _ack, state);
+                            stream.shutdown().await.unwrap();
+                            registry.ongoing_connection_decr();
                             registry.exited_tasks_inc();
                             return;
                         }
@@ -132,44 +135,11 @@ pub async fn run(
         client_id, sent, sending, sendack
     );
     // Updating counter of the exiting tasks
+    stream.shutdown().await.unwrap();
     registry.exited_tasks_inc();
+    registry.established_connection_decr();
     return;
 }
-
-/*
-async fn retry<'a, F, T>(
-    f: F,
-    cfg: &'a config::Config,
-    things_idx: usize,
-    client_id: &'a str,
-    retry: usize,
-) -> std::result::Result<TcpStream, std::io::Error>
-where
-    F: Fn(&'a config::Config, usize, &'a str) -> T + 'a,
-    T: std::future::Future<Output = std::result::Result<TcpStream, std::io::Error>>,
-{
-    let mut count = 0;
-    loop {
-        let result = f(cfg, things_idx, client_id).await;
-        match result {
-            Ok(stream) => {
-                return Ok(stream);
-            }
-            Err(e) => {
-                count = count + 1;
-                if count > retry {
-                    return Err(Error::new(ErrorKind::Other, "retry failed").into());
-                }
-                println!(
-                    "retrying due to error {}, connect broker, count is {}",
-                    e, count
-                );
-                shuffle_sleep(5000).await;
-            }
-        }
-    }
-}
- */
 
 async fn retry<'a, F, T>(
     f: F,
