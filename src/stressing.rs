@@ -31,7 +31,6 @@ pub async fn run(
     let mut stream;
     let client_id = cfg.get_client_id(things_idx);
     shuffle_sleep(120000).await;
-
     if let Ok(str) = connect_broker(&cfg, things_idx, &client_id, http_client).await {
         stream = str;
     } else {
@@ -191,6 +190,8 @@ async fn connect_broker<'a>(
         let num = rand::thread_rng().gen_range(0..cfg.broker_addr.len());
         broker_addr = cfg.broker_addr[num].clone()
     }
+
+    shuffle_sleep(30000).await; // avoid the file descriptor was exhausted
     let mut stream = match TcpStream::connect(&broker_addr).await {
         Ok(stream) => stream,
         Err(e) => {

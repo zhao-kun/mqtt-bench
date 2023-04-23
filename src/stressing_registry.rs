@@ -1,7 +1,7 @@
 use atomic_counter::{AtomicCounter, RelaxedCounter};
 use metrics::gauge;
 use std::fmt;
-use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Mutex;
 
 #[derive(Debug, Clone)]
