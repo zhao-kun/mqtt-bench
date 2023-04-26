@@ -69,12 +69,11 @@ pub async fn run(
         }
         select! {
             _ = heartbeat.tick() => {
-                if let Ok(packet) = new_publish_packet(&state, &topic,  &payload){
+                if let Ok(packet) = new_publish_packet(&client_id, &state, &topic,  &payload){
                     tx_ch.send(packet).unwrap();
                     sending += 1;
                 }else {
                     registry.timeout_pubacks_inc();
-                    println!("heartbeat arrive but puback not received");
                 }
             },
             result = rx_ch.recv() => {
@@ -101,7 +100,7 @@ pub async fn run(
                     VariablePacket::ConnackPacket(_ack) => {
                         if state == StressState::Connecting && _ack.connect_return_code() == mqtt::control::ConnectReturnCode::ConnectionAccepted{
                             state = StressState::Published;
-                            println!("connection was established");
+                            println!("client_id: {} connection was established", client_id);
                             registry.established_connection_inc();
                             registry.ongoing_connection_decr();
                         } else {
@@ -118,7 +117,7 @@ pub async fn run(
                             sendack +=1;
                             registry.publish_packets_inc();
                         } else {
-                            println!("recv invalid Puback, puback should be return when state is publishing");
+                            println!("client_id: {} recv invalid Puback, puback should be return when state is publishing", client_id);
                             registry.invalid_pubacks_inc();
                         }
                     }
@@ -217,14 +216,15 @@ async fn shuffle_sleep(max_mills: u64) {
 }
 
 fn new_publish_packet(
+    client_id: &str,
     state: &StressState,
     topic: &String,
     payload: &Vec<u8>,
 ) -> Result<PublishPacket> {
     if state != &StressState::Published {
         println!(
-            "Do nothing as connection not build, current state is {:?}",
-            state
+            "Do nothing for client: {} as connection not build, current state is {:?}",
+            client_id, state
         );
         return Err(Error::new(ErrorKind::Other, "not ready"));
     }
